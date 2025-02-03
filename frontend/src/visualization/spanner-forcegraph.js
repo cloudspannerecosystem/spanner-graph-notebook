@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+/** @typedef {import('../models/edge').Edge} Edge */
+
 class GraphVisualization {
     /**
      * The graph store that this visualization is based on.
@@ -493,7 +495,7 @@ class GraphVisualization {
     /**
      * Callback for GraphStore.EventTypes.CONFIG_CHANGE events.
      * @param {GraphConfig} config - The new configuration.
-    */
+     */
     onStoreConfigChange(config) {
         this.render();
     }
@@ -519,7 +521,7 @@ class GraphVisualization {
 
         // This is duplicated between onSelectedNodeChange and onFocusedNodeChange.
         // This could be extracted to a separate function.
-        const { nodes, links } = this.graph.graphData();
+        const {nodes, links} = this.graph.graphData();
 
         this.selectedNodeEdges = links.filter(
             link => link.source.id === node.id || link.target.id === node.id);
@@ -569,7 +571,7 @@ class GraphVisualization {
             return;
         }
 
-        const { nodes, links } = this.graph.graphData();
+        const {nodes, links} = this.graph.graphData();
         const focusedNodeEdges = links.filter(link => link.source.id === node.id || link.target.id === node.id);
         this.focusedNodeEdges.push(...focusedNodeEdges);
         this.focusedNodeNeighbors = nodes.filter(n => {
@@ -586,18 +588,18 @@ class GraphVisualization {
         this.graph.calculateLineLengthByCluster = () => {
             this.graph
                 .d3Force('link').distance(link => {
-                    const graphSize = Math.max(this.store.getNodes().length, 15);
-                    let distance = Math.log10(graphSize) * 40;
+                const graphSize = Math.max(this.store.getNodes().length, 15);
+                let distance = Math.log10(graphSize) * 40;
 
-                    // Only apply neighborhood clustering logic if using force layout
-                    if (graphSize !== 0 && (this.store.config.viewMode === GraphConfig.ViewModes.SCHEMA || this.graph.dagMode() !== '')) {
-                        distance = Math.log10(graphSize) * 50;
-                    } else if (this.graph.dagMode() === '') {
-                        distance = link.source.neighborhood === link.target.neighborhood ? distance * 0.5 : distance * 0.8;
-                    }
-                    return distance;
-                });
-             return graph;
+                // Only apply neighborhood clustering logic if using force layout
+                if (graphSize !== 0 && (this.store.config.viewMode === GraphConfig.ViewModes.SCHEMA || this.graph.dagMode() !== '')) {
+                    distance = Math.log10(graphSize) * 50;
+                } else if (this.graph.dagMode() === '') {
+                    distance = link.source.neighborhood === link.target.neighborhood ? distance * 0.5 : distance * 0.8;
+                }
+                return distance;
+            });
+            return graph;
         }
     }
 
@@ -641,7 +643,7 @@ class GraphVisualization {
             let delta = 2 * curvatureMinMax / lastIndex;
             for (let i = 0; i < lastIndex; i++) {
                 const link = links[i];
-                links[i].curvature = - curvatureMinMax + i * delta;
+                links[i].curvature = -curvatureMinMax + i * delta;
                 if (lastLink.from !== links[i].from) {
                     links[i].curvature *= -1; // flip it around, otherwise they overlap
                 }
@@ -670,22 +672,22 @@ class GraphVisualization {
                 })
                 .linkColor(link => {
                     let edgeDesign = this.store.getEdgeDesign(link);
-                
+
                     // Check if ANY node OR edge is focused or selected
                     const isAnyElementFocusedOrSelected =
                         this.store.config.focusedGraphObject instanceof Node ||
                         this.store.config.selectedGraphObject instanceof Node ||
                         this.store.config.focusedGraphObject instanceof Edge ||
                         this.store.config.selectedGraphObject instanceof Edge;
-                
+
                     // Lighten the edge color if an element is focused or selected
                     // and the edge is NOT connected to it
-                    if (isAnyElementFocusedOrSelected && 
+                    if (isAnyElementFocusedOrSelected &&
                         !this.store.edgeIsConnectedToFocusedNode(link) &&
                         !this.store.edgeIsConnectedToSelectedNode(link) &&
                         link !== this.store.config.focusedGraphObject && // Check for focused edge
                         link !== this.store.config.selectedGraphObject) { // Check for selected edge
-                
+
                         const lightenAmount = 0.48;
                         const originalColor = edgeDesign.color;
                         return this.lightenColor(originalColor, lightenAmount);
@@ -745,7 +747,7 @@ class GraphVisualization {
                             }
                             // ...or if it's connected to the selected or hovered node.
                             else if (this.selectedNodeNeighbors.includes(node) ||
-                                     this.focusedNodeNeighbors.includes(node)) {
+                                this.focusedNodeNeighbors.includes(node)) {
                                 lightenAmount = 0;
                             }
                         }
@@ -969,25 +971,25 @@ class GraphVisualization {
                         const showLabel = () => {
                             // 1. Prioritize focused edge
                             if (this.focusedEdge && link === this.focusedEdge) {
-                              return true; // Always show label for focused edge
+                                return true; // Always show label for focused edge
                             }
-                          
+
                             // 2. Show label if a node is connected to a focused or selected node
                             if (this.selectedNode && this.store.edgeIsConnectedToSelectedNode(link) ||
                                 this.focusedNode && this.store.edgeIsConnectedToFocusedNode(link)) {
-                              return true;
+                                return true;
                             }
-                          
+
                             // 3. Show label if the edge is selected
                             if (this.selectedEdge && link === this.selectedEdge) {
-                              return true; // Always show label for selected edge
+                                return true; // Always show label for selected edge
                             }
-                          
+
                             // 4. Show labels if within zoom tolerance and no node or edge is focused/selected
                             const focusedOrSelectedObjectExists = this.focusedEdge || this.selectedEdge || this.focusedNode || this.selectedNode;
                             const withinZoomTolerance = globalScale > maxGlobalScale;
                             if (withinZoomTolerance && !focusedOrSelectedObjectExists) {
-                              return true;
+                                return true;
                             }
 
                             // 5. Always show the label if "Show Labels" is selected
@@ -1026,20 +1028,20 @@ class GraphVisualization {
                             cp2y,
                             ex,
                             ey,
-                          ) => {
+                        ) => {
                             return {
-                              x:
-                                (1 - t) * (1 - t) * (1 - t) * sx +
-                                3 * (1 - t) * (1 - t) * t * cp1x +
-                                3 * (1 - t) * t * t * cp2x +
-                                t * t * t * ex,
-                              y:
-                                (1 - t) * (1 - t) * (1 - t) * sy +
-                                3 * (1 - t) * (1 - t) * t * cp1y +
-                                3 * (1 - t) * t * t * cp2y +
-                                t * t * t * ey,
+                                x:
+                                    (1 - t) * (1 - t) * (1 - t) * sx +
+                                    3 * (1 - t) * (1 - t) * t * cp1x +
+                                    3 * (1 - t) * t * t * cp2x +
+                                    t * t * t * ex,
+                                y:
+                                    (1 - t) * (1 - t) * (1 - t) * sy +
+                                    3 * (1 - t) * (1 - t) * t * cp1y +
+                                    3 * (1 - t) * t * t * cp2y +
+                                    t * t * t * ey,
                             };
-                          };
+                        };
 
                         const selfLoop = link.source === link.target;
 
@@ -1075,7 +1077,7 @@ class GraphVisualization {
 
                         let maxTextLength = 50;
                         if (!selfLoop) {
-                            const relLink = { x: end.x - start.x, y: end.y - start.y };
+                            const relLink = {x: end.x - start.x, y: end.y - start.y};
                             const linkLength = Math.sqrt(relLink.x * relLink.x + relLink.y * relLink.y);
                             maxTextLength = linkLength - 5;
                         }
@@ -1124,22 +1126,102 @@ class GraphVisualization {
                             textVerticalOffset = ctx.measureText("H").actualBoundingBoxDescent * 0.5;
                         }
                         ctx.fillStyle = isSelected
-                        ? selectedTextColor
-                        : isFocused
-                            ? focusedTextColor
-                            : defaultTextColor;
+                            ? selectedTextColor
+                            : isFocused
+                                ? focusedTextColor
+                                : defaultTextColor;
                         ctx.fillText(label, 0, textVerticalOffset);
 
                         ctx.strokeStyle = isSelected
-                        ? selectedTextColor
-                        : defaultTextColor;
+                            ? selectedTextColor
+                            : defaultTextColor;
                         ctx.lineWidth = .5;
-                        ctx.strokeRect((-textRect.width / 2)-1 , (-fontSize / 2)-1, textRect.width + 2, fontSize + 2);
+                        ctx.strokeRect((-textRect.width / 2) - 1, (-fontSize / 2) - 1, textRect.width + 2, fontSize + 2);
 
                         ctx.restore();
                     });
             return graph;
         };
+    }
+
+    /**
+     * @param {Node} node - The node to show context menu for
+     * @param {MouseEvent} event - The mouse event that triggered the context menu
+     * @private
+     */
+    _showMouseContextMenu(node, event) {
+        // Prevent the default context menu
+        event.preventDefault();
+
+        // Remove any existing context menus
+        const existingMenu = document.querySelector('.graph-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+
+        const edgeDirections = {};
+        for (const edge of this.store.getEdgesOfNode(node)) {
+            if (edgeDirections[edge.label]) {
+                continue;
+            }
+            edgeDirections[edge.label] = edge.source === node ? '->' : '<-';
+        }
+
+        const html = `
+            <div class="graph-context-menu">
+                <div class="context-menu-item has-submenu">
+                    <span>Expand</span>
+                    <span class="submenu-arrow">›</span>
+                    <div class="submenu">
+                        <div class="context-menu-item" id="context-menu-all-edges-button"">All edges</div>
+                        ${Object.keys(edgeDirections).map((edgeLabel) => 
+                            `<div class="context-menu-item node-expand-edge" data-direction="${edgeDirections[edgeLabel]}">${edgeDirections[edgeLabel]} ${edgeLabel}</div>`).join('')}
+                    </div>
+                </div>
+                <div id="context-menu-hide-button" class="context-menu-item">Hide</div>
+                <div id="context-menu-hide-others-button" class="context-menu-item">Hide all others</div>
+            </div>
+        `;
+
+        // Create a container for the menu
+        const menuContainer = document.createElement('div');
+        menuContainer.innerHTML = html;
+
+        // Add the menu to the document body
+        document.body.appendChild(menuContainer.firstElementChild);
+
+        // Position the menu at the mouse coordinates
+        const menu = document.querySelector('.graph-context-menu');
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+
+        // Add event listener to close menu when clicking outside
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+
+        document.addEventListener('click', closeMenu);
+
+        // Add event listeners for broad node expansion
+        menuContainer.querySelector('#context-menu-all-edges-button').addEventListener('click', () => {
+            // todo: interface with store or graphserver
+        });
+
+        // Add event listeners for node expansion of individual edge types
+        for (const element in menuContainer.querySelectorAll('.node-expand-edge')) {
+            const edgeLabel = element.textContent;
+            const direction = element.attr('data-direction');
+            if (direction !== '->' || direction !== '<-') {
+                return;
+            }
+
+            element.addEventListener('click', () => {
+                // todo: interface with store or graphserver
+            });
+        }
     }
 
     /**
@@ -1178,14 +1260,7 @@ class GraphVisualization {
             .linkSource('source')
             .linkTarget('target')
             .linkLabel(link => '')
-            // .enablePointerInteraction(false)
-            // If paused, mouse events stop.
-            // Pausing improves performance,
-            // and is something to keep in mind
-            // when we run into performance bottlenecks.
             .autoPauseRedraw(false)
-            // These handlers should be extracted to a
-            // wrapper function similar to .drawNodes()
             .onNodeHover(node => {
                 if (!this.store.config.focusedGraphObject || !(this.store.config.focusedGraphObject instanceof Edge)) {
                     this.store.setFocusedObject(node);
@@ -1197,6 +1272,9 @@ class GraphVisualization {
             })
             .onNodeClick(node => {
                 this.store.setSelectedObject(node);
+            })
+            .onNodeRightClick((node, event) => {
+                this._showMouseContextMenu(node, event);
             })
             .onLinkHover(link => {
                 this.store.setFocusedObject(link);

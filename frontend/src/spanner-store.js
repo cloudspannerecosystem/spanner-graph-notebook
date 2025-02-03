@@ -243,6 +243,10 @@ class GraphStore {
         return [];
     }
 
+    /**
+     * @param {Node} node
+     * @returns {Edge[]}
+     */
     getEdgesOfNode(node) {
         if (!node || !node instanceof Node) {
             return [];

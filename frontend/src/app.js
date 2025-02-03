@@ -269,6 +269,57 @@ class SpannerApp {
                     transform: rotate(360deg);
                   }
                 }
+                
+                .graph-context-menu {
+                    position: fixed;
+                    background: white;
+                    border-radius: 4px;
+                    padding: 0;
+                    min-width: 160px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+                    font-size: 14px;
+                    z-index: 1000;
+                }
+        
+                .context-menu-item {
+                    padding: 12px;
+                    margin-right: 0;
+                    cursor: pointer;
+                    color: #3c4043;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+        
+                .context-menu-item:hover {
+                    background-color: #f1f3f4;
+                }
+        
+                .has-submenu {
+                    position: relative;
+                }
+        
+                .submenu-arrow {
+                    margin-left: 16px;
+                    color: #5f6368;
+                }
+        
+                .submenu {
+                    position: absolute;
+                    left: 100%;
+                    top: -4px;
+                    background: white;
+                    border-radius: 4px;
+                    padding: 4px 0;
+                    min-width: 160px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    display: none;
+                }
+        
+                .has-submenu:hover .submenu {
+                    display: block;
+                }
             </style>
             <div class="container">
                 <header id="graph-menu-${this.id}"></header>
