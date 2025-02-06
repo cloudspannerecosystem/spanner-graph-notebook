@@ -95,7 +95,9 @@ class GraphStore {
         COLOR_SCHEME: Symbol('colorScheme'),
         VIEW_MODE_CHANGE: Symbol('viewModeChange'),
         LAYOUT_MODE_CHANGE: Symbol('layoutModeChange'),
-        SHOW_LABELS: Symbol('showLabels')
+        SHOW_LABELS: Symbol('showLabels'),
+        NODE_EXPANSION_REQUEST: Symbol('nodeExpansionRequest'),
+        NODE_EXPANSION_EDGE_REQUEST: Symbol('nodeExpansionEdgeRequest')
     });
 
     /**
@@ -131,7 +133,15 @@ class GraphStore {
         /**
          * @type {GraphStore.EventTypes.SHOW_LABELS, ShowLabelsCallback[]>}
          */
-        [GraphStore.EventTypes.SHOW_LABELS]: []
+        [GraphStore.EventTypes.SHOW_LABELS]: [],
+        /**
+         * @type {GraphStore.EventTypes.NODE_EXPANSION_REQUEST, NodeExpansionRequestCallback[]>}
+         */
+        [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]: [],
+        /**
+         * @type {GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST, NodeExpansionEdgeRequestCallback[]>}
+         */
+        [GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST]: []
     };
 
     /**
@@ -434,6 +444,19 @@ class GraphStore {
         }
 
         return this.config.edgeDesign.default;
+    }
+
+    /**
+     * @param {Node} node
+     */
+    requestNodeExpansion(node) {
+        this.eventListeners[GraphStore.EventTypes.NODE_EXPANSION_REQUEST]
+            .forEach(callback => callback(node, this.config));
+    }
+
+    requestNodeExpansionEdge(node, edgeLabel, direction) {
+        this.eventListeners[GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST]
+            .forEach(callback => callback(node, edgeLabel, direction, this.config));
     }
 }
 

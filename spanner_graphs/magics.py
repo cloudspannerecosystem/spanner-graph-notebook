@@ -23,6 +23,7 @@ import json
 import os
 import sys
 from threading import Thread
+import re
 
 from IPython.core.display import HTML, JSON
 from IPython.core.magic import Magics, magics_class, cell_magic

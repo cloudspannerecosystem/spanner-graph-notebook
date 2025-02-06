@@ -1206,20 +1206,17 @@ class GraphVisualization {
         document.addEventListener('click', closeMenu);
 
         // Add event listeners for broad node expansion
-        menuContainer.querySelector('#context-menu-all-edges-button').addEventListener('click', () => {
-            // todo: interface with store or graphserver
+        document.body.querySelector('#context-menu-all-edges-button').addEventListener('click', () => {
+            this.store.requestNodeExpansion(node);
         });
 
         // Add event listeners for node expansion of individual edge types
-        for (const element in menuContainer.querySelectorAll('.node-expand-edge')) {
-            const edgeLabel = element.textContent;
-            const direction = element.attr('data-direction');
-            if (direction !== '->' || direction !== '<-') {
-                return;
-            }
-
+        for (const element of document.body.querySelectorAll('.node-expand-edge')) {
+            const edgeLabel = element.textContent.split(' ')[1];
+            const direction = element.dataset.direction;
+            
             element.addEventListener('click', () => {
-                // todo: interface with store or graphserver
+                this.store.requestNodeExpansionEdge(node, edgeLabel, direction);
             });
         }
     }

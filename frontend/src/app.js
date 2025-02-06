@@ -159,6 +159,22 @@ class SpannerApp {
                         }
                     });
 
+                this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_REQUEST,
+                    (node, config) => {
+                        this.server.nodeExpansion(node)
+                            .then(response => {
+                                // Handle response and update graph
+                            });
+                    });
+
+                this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST,
+                    (node, edgeLabel, direction, config) => {
+                        this.server.nodeExpansionSingleEdge(node, edgeLabel, direction)
+                            .then(response => {
+                                // Handle response and update graph
+                            });
+                    });
+
                 if (!nodes.length) {
                     this.store.setViewMode(GraphConfig.ViewModes.TABLE);
                 }

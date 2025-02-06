@@ -20,6 +20,7 @@ class GraphServer {
     endpoints = {
         getPing: '/get_ping',
         postQuery: '/post_query',
+        postNodeExpansion: '/post_node_expansion',
     };
 
     /**
@@ -54,6 +55,56 @@ class GraphServer {
 
         this.port = numericalPort;
         this.params = params
+    }
+
+    /**
+     * @param {Node} node
+     */
+    nodeExpansion(node) {
+        if (!node.identifiers.length || !node.key_property_names.length) {
+            return Promise.reject(new Error('Node does not have an identifier'));
+        }
+
+        const request = {
+            project: this.project,
+            instance: this.instance,
+            database: this.database,
+            uid: this.id,
+            graph: this.graph,
+            node_key_property_name: node.key_property_names[0],
+            node_key_property_value: node.identifiers[0]
+        };
+
+        this.isFetching = true;
+
+        if (typeof google !== 'undefined') {
+            return google.colab.kernel.invokeFunction('spanner.NodeExpansion', [], request)
+                .then(result => result.data['application/json'])
+                .finally(() => this.isFetching = false);
+        }
+
+        return fetch(this.buildRoute(this.endpoints.postNodeExpansion), {
+            method: 'POST',
+            body: JSON.stringify(request)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json(); // Assuming JSON response
+            })
+            .catch(error => {
+                console.error('There has been a problem with your fetch operation:', error);
+            })
+            .finally(() => this.isFetching = false);
+    }
+
+    /**
+     * @param {Node} node
+     * @param {Edge} edge
+     */
+    nodeExpansionSingleEdge(node, edge) {
+
     }
 
     query(queryString) {

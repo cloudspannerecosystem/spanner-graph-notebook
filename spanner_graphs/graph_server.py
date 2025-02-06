@@ -25,6 +25,29 @@ from spanner_graphs.conversion import prepare_data_for_graphing, columns_to_nati
 from spanner_graphs.database import get_database_instance
 
 
+def execute_node_expansion(project: str, instance: str, database: str, node_key_property_name: str, node_key_property_value: str, graph: str, uid: str):
+    query = f"""
+    GRAPH {graph}
+    LET uid = "{uid}"
+    MATCH (n)
+    WHERE n.{node_key_property_name} = "{node_key_property_value}" and STRING(TO_JSON(n).identifier) = uid
+    RETURN n
+
+    NEXT
+
+    MATCH (n)-[e]->(d)
+    RETURN n, e, d
+
+    UNION ALL
+
+    MATCH (n)<-[f]-(k)
+    RETURN TO_JSON(n) as n, TO_JSON(f) AS f, TO_JSON(k) AS k, TO_JSON(e) as e, TO_JSON(d) as d
+    """
+
+    print(query)
+
+    return execute_query(project, instance, database, query, mock=False)
+
 def execute_query(project: str, instance: str, database: str, query: str, mock = False):
     database = get_database_instance(project, instance, database, mock)
 
@@ -68,6 +91,7 @@ class GraphServer:
         "get_ping": "/get_ping",
         "post_ping": "/post_ping",
         "post_query": "/post_query",
+        "post_node_expansion": '/post_node_expansion',
     }
 
     _server = None
@@ -141,6 +165,9 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
     def do_data_response(self, data):
         self.do_json_response(data)
 
+    def do_error_response(self, message):
+        self.do_json_response({'error': message})
+
     def parse_post_data(self):
         content_length = int(self.headers["Content-Length"])
         post_data = self.rfile.read(content_length).decode("utf-8")
@@ -165,6 +192,73 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         )
         self.do_data_response(response)
 
+    def handle_post_node_expansion(self):
+        data = self.parse_post_data()
+        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "node_key_property_value"]
+        missing_fields = [field for field in required_fields if data.get(field) is None]
+        
+        if missing_fields:
+            self.do_error_response(f"Missing required fields: {', '.join(missing_fields)}")
+            return
+
+        project = data.get("project")
+        instance = data.get("instance")
+        database = data.get("database")
+        graph = data.get("graph")
+        uid = data.get("uid")
+        node_key_property_name = data.get("node_key_property_name")
+        node_key_property_value = data.get("node_key_property_value")
+
+        self.do_data_response(execute_node_expansion(
+            project=project, instance=instance, database=database, graph=graph, uid=uid,
+            node_key_property_name=node_key_property_name, node_key_property_value=node_key_property_value
+        ))
+
+    def handle_post_node_expansion_single_edge(self):
+        data = self.parse_post_data()
+        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "edge_label", "direction"]
+        missing_fields = [field for field in required_fields if data.get(field) is None]
+        
+        if missing_fields:
+            self.do_error_response(f"Missing required fields: {', '.join(missing_fields)}")
+            return
+
+        project = data.get("project")
+        instance = data.get("instance")
+        database = data.get("database")
+        graph = data.get("graph")
+        uid = data.get("uid")
+        node_key_property_name = data.get("node_key_property_name")
+        edge_label = data.get("edge_label")
+        direction = data.get("direction")
+
+        if direction not in ["INCOMING", "OUTGOING"]:
+            self.do_error_response(f"Invalid direction: must be INCOMING or OUTGOING, got \"{direction}\"")
+            return
+
+        # Build the path pattern based on direction
+        path_pattern = (
+            f"(n)-[e:{edge_label}]->(d)"
+            if direction == "OUTGOING"
+            else f"(n)<-[e:{edge_label}]-(d)"
+        )
+
+        query = f"""
+        GRAPH {graph}
+        LET uid = "{uid}"
+        MATCH (n)
+        WHERE n.id = "{node_key_property_name}" and STRING(TO_JSON(n).identifier) = uid
+        RETURN n
+
+        NEXT
+
+        MATCH {path_pattern}
+        RETURN TO_JSON(n) as n, TO_JSON(e) AS e, TO_JSON(d) AS d
+        """
+
+        response = execute_query(project, instance, database, query, mock=False)
+        self.do_data_response(response)
+
     def do_GET(self):
         if self.path == GraphServer.endpoints["get_ping"]:
             self.handle_get_ping()
@@ -176,6 +270,10 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_post_ping()
         elif self.path == GraphServer.endpoints["post_query"]:
             self.handle_post_query()
+        elif self.path == GraphServer.endpoints["post_node_expansion"]:
+            self.handle_post_node_expansion()
+        elif self.path == GraphServer.endpoints["post_node_expansion_single_edge"]:
+            self.handle_post_node_expansion_single_edge()
 
 
 atexit.register(GraphServer.stop_server)
