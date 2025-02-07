@@ -203,6 +203,7 @@ class Node:
         graph.add_node(
             node_id,
             id=node_id,
+            uid=self.identifier,
             label=self.label_str,
             properties=self.properties,
             key_property_names=self.key_property_names,

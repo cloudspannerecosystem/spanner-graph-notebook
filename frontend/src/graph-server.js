@@ -42,7 +42,7 @@ class GraphServer {
         }
     }
 
-    constructor(port, params) {
+    constructor(port, graph, params) {
         let numericalPort = port;
         if (typeof numericalPort !== 'number') {
             numericalPort = Number.parseInt(numericalPort);
@@ -55,6 +55,7 @@ class GraphServer {
 
         this.port = numericalPort;
         this.params = params
+        this.graph = graph;
     }
 
     /**
@@ -65,11 +66,15 @@ class GraphServer {
             return Promise.reject(new Error('Node does not have an identifier'));
         }
 
+        if (!node.uid) {
+            return Promise.reject(new Error('Node does not have a UID'));
+        }
+
         const request = {
             project: this.project,
             instance: this.instance,
             database: this.database,
-            uid: this.id,
+            uid: node.uid,
             graph: this.graph,
             node_key_property_name: node.key_property_names[0],
             node_key_property_value: node.identifiers[0]

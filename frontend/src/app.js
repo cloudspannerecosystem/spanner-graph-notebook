@@ -71,7 +71,7 @@ class SpannerApp {
         table: null
     };
 
-    constructor({id, port, params, mount, query}) {
+    constructor({id, port, params, mount, graph, query}) {
         this.id = id;
         this.lastQuery = query;
 
@@ -83,7 +83,7 @@ class SpannerApp {
 
         this.scaffold();
 
-        this.server = new GraphServer(port, params);
+        this.server = new GraphServer(port, graph, params);
         this.server.query(query)
             .then(data => {
                 if (!data) {

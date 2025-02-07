@@ -41,6 +41,12 @@ class Node extends GraphObject {
      */
     neighborhood = 0;
 
+    /**
+     * Corresponds to "identifier" in Spanner
+     * @type {string}
+     */
+    uid = '';
+
     color = '#ec0001';
 
     /**
@@ -69,9 +75,10 @@ class Node extends GraphObject {
     * @param {string} params.label - The label for the edge.
     * @param {string|Object} params.title - The optional property:value map for the edge.
     * @param {string} params.color - The color of the edge
+     * @param {string} params.uid - The "identifier" property found in Spanner
     * @extends GraphObject
     */
-    constructor({ label, title, properties, value, id, neighborhood, color, key_property_names }) {
+    constructor({ label, title, properties, value, id, neighborhood, color, key_property_names, uid }) {
         super({ label, title, properties, key_property_names });
 
         if (typeof id != 'number') {
@@ -81,6 +88,7 @@ class Node extends GraphObject {
         }
 
         this.id = id;
+        this.uid = uid;
         this.value = value;
         this.instantiated = true;
         this.neighborhood = typeof neighborhood === 'number' ? neighborhood : 0;
