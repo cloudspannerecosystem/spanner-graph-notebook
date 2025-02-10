@@ -225,7 +225,6 @@ def prepare_data_for_graphing(
         node.key_property_names = schema_manager.get_key_property_names(node)
         if node.identifier not in node_mapping:
             node_mapping[node.identifier] = len(node_mapping) + 1
-        node.decide_label_string(node_display_props)
         node.add_to_graph(g, node_mapping)
 
         if size_mode == SizeMode.PROPERTY:
@@ -282,7 +281,6 @@ def prepare_data_for_graphing(
             continue
 
         edge = Edge.from_json(item)
-        edge.decide_label_string(edge_display_props)
         numerical_id = (len(node_mapping) + 1) + edge_counter
         edge_counter += 1
         edge.add_to_graph(g, node_mapping, numerical_id)

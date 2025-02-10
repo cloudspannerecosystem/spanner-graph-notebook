@@ -60,7 +60,7 @@ class SidebarConstructor {
         const nodeChip = document.createElement('span');
         nodeChip.style.backgroundColor = this.store.getColorForNode(node);
         nodeChip.className = `node-chip ${clickable ? 'clickable' : ''}`;
-        nodeChip.textContent = customLabel || node.label;
+        nodeChip.textContent = customLabel || node.getDisplayName();
 
         if (clickable) {
             nodeChip.addEventListener('mouseenter', () => {
@@ -89,7 +89,7 @@ class SidebarConstructor {
     _edgeChipHtml(edge, clickable = false) {
         const edgeChip = document.createElement('span');
         edgeChip.className = `edge-chip ${clickable ? 'clickable' : ''}`;
-        edgeChip.textContent = edge.label;
+        edgeChip.textContent = edge.getDisplayName();
 
         if (clickable) {
             edgeChip.addEventListener('mouseenter', () => {

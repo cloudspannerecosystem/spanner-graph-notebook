@@ -30,9 +30,14 @@ class Edge extends GraphObject {
      */
     source;
 
+    static Direction = Object.freeze({
+        INCOMING: Symbol('INCOMING'),
+        OUTGOING: Symbol('OUTGOING')
+    });
+
     /**
      * @typedef {Object} EdgeData - The label shown in the sidebar or graph.
-     * @property {string} label
+     * @property {string[]} labels
      * @property {string|Object} properties - An optional property:value map.
      * @property {Object} key_property_names
      * @property {string} color
@@ -47,16 +52,15 @@ class Edge extends GraphObject {
     * @param {Object} params
     * @param {string} params.to - The identifier of the node this edge is directed to.
     * @param {string} params.from - The identifier of the node this edge originates from.
-    * @param {string} params.label - The label for the edge.
     * @param {string|Object} params.title - The optional property:value map for the edge.
     * @extends GraphObject
     */
-    constructor({ to, from, label, properties, title }) {
-        super({ label, title, properties });
+    constructor({ to, from, labels, properties, title }) {
+        super({ labels, title, properties });
 
         if (!this.isNumber(to) || !this.isNumber(from)) {
             this.instantiated = false;
-            console.log('Failed to instantiate edge', { reason: '"to" and "from" are not numbers', to, from, label, title });
+            console.log('Failed to instantiate edge', { reason: '"to" and "from" are not numbers', to, from, labels, title });
             return;
         }
 

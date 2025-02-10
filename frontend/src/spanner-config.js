@@ -198,7 +198,7 @@ class GraphConfig {
                 return;
             }
 
-            const label = node.label;
+            const label = node.getDisplayName();
             if (!label || !label instanceof String) {
                 console.error('Node does not have a label', node);
                 return;
@@ -230,13 +230,11 @@ class GraphConfig {
              * @returns {NodeData}
              */
             (nodeTable, i) => {
-                const name = this.schema.getDisplayName(nodeTable)
-
                 /**
                  * @type {NodeData}
                  */
                 return {
-                    label: name,
+                    labels: nodeTable.labelNames,
                     properties: this.schema.getPropertiesOfTable(nodeTable),
                     color: 'rgb(0, 0, 100)', // this isn't used
                     key_property_names: ['id'],
@@ -253,13 +251,12 @@ class GraphConfig {
              */
             (edgeTable, i) => {
                 const connectedNodes = this.schema.getNodesOfEdges(edgeTable);
-                const name = this.schema.getDisplayName(edgeTable)
 
                 /**
                  * @type {EdgeData}
                  */
                 return {
-                    label: name,
+                    labels: edgeTable.labelNames,
                     properties: this.schema.getPropertiesOfTable(edgeTable),
                     color: 'rgb(0, 0, 100)', // this isn't used
                     to: this.schema.getNodeTableId(connectedNodes.to),

@@ -305,7 +305,10 @@ class SpannerApp {
                     color: #3c4043;
                     display: flex;
                     align-items: center;
-                    justify-content: space-between;
+                }
+                
+                .context-menu-item svg {
+                    margin-right: 5px;
                 }
         
                 .context-menu-item:hover {
@@ -327,7 +330,6 @@ class SpannerApp {
                     top: -4px;
                     background: white;
                     border-radius: 4px;
-                    padding: 4px 0;
                     min-width: 160px;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                     display: none;

@@ -23,7 +23,7 @@ describe('Edge', () => {
         edge = new Edge({
             from: 1,
             to: 2,
-            label: 'Test Edge',
+            labels: ['Test Edge'],
             properties: {
                 type: 'connection',
                 weight: 1.0
@@ -35,7 +35,7 @@ describe('Edge', () => {
         expect(edge).toBeDefined();
         expect(edge.from).toBe(1);
         expect(edge.to).toBe(2);
-        expect(edge.label).toBe('Test Edge');
+        expect(edge.labels).toEqual(['Test Edge']);
         expect(edge.instantiated).toBe(true);
     });
 
@@ -48,7 +48,7 @@ describe('Edge', () => {
         const invalidEdge = new Edge({
             from: 'not-a-number',
             to: 2,
-            label: 'Invalid Edge'
+            labels: ['Invalid Edge']
         });
         
         expect(invalidEdge.instantiated).toBe(false);
@@ -58,7 +58,7 @@ describe('Edge', () => {
         const invalidEdge = new Edge({
             from: 1,
             to: 'not-a-number',
-            label: 'Invalid Edge'
+            labels: ['Invalid Edge']
         });
         
         expect(invalidEdge.instantiated).toBe(false);
@@ -75,18 +75,9 @@ describe('Edge', () => {
         const edgeWithoutProps = new Edge({
             from: 1,
             to: 2,
-            label: 'No Props'
+            labels: ['No Props']
         });
         
         expect(edgeWithoutProps.properties).toBeUndefined();
-    });
-
-    it('should handle missing label', () => {
-        const edgeWithoutLabel = new Edge({
-            from: 1,
-            to: 2
-        });
-        
-        expect(edgeWithoutLabel.label).toBeUndefined();
     });
 });

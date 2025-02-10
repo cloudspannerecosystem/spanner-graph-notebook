@@ -16,11 +16,27 @@
 const GraphObject = require('../../../src/models/graph-object.js');
 
 describe('Graph Object', () => {
-    it('Should create a Graph Object instance', () => {
-       const graphObject = new GraphObject({
-           label: 'foo', properties: []
-       });
+    it('should create a Graph Object instance', () => {
+        const graphObject = new GraphObject({
+            labels: ['foo', 'bar'], properties: []
+        });
 
-       expect(graphObject).toBeInstanceOf(GraphObject);
+        expect(graphObject).toBeInstanceOf(GraphObject);
+    });
+
+    it('should fail to instantiate without labels', () => {
+        expect(() => {
+            new GraphObject({
+                properties: []
+            });
+        }).toThrow(new TypeError('labels must be an Array'));
+    });
+
+    it('should return the first label as its display name', () => {
+        const graphObject = new GraphObject({
+            labels: ['foo', 'bar'], properties: []
+        });
+
+        expect(graphObject.getDisplayName()).toBe('foo');
     });
 });

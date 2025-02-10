@@ -32,9 +32,9 @@ describe('GraphStore', () => {
     let mockEdge: typeof Edge;
 
     beforeEach(() => {
-        mockNode1 = new GraphNode({id: '1', label: 'TestLabel1', neighborhood: 1});
-        mockNode2 = new GraphNode({id: '2', label: 'TestLabel2', neighborhood: 2});
-        mockEdge = new Edge({source: mockNode1, target: mockNode2});
+        mockNode1 = new GraphNode({id: '1', labels: ['TestLabel1'], neighborhood: 1});
+        mockNode2 = new GraphNode({id: '2', labels: ['TestLabel2'], neighborhood: 2});
+        mockEdge = new Edge({source: mockNode1, target: mockNode2, labels: ['testEdgeLabel1']});
 
         const mockPropertyDeclarations = [
             {name: 'age', type: 'INT64'},
@@ -270,8 +270,9 @@ describe('GraphStore', () => {
 
         it('should return default design for unrelated edges', () => {
             const unrelatedEdge = new Edge({
-                source: new GraphNode({id: '3'}),
-                target: new GraphNode({id: '4'})
+                source: new GraphNode({id: '3', labels: ['foo']}),
+                target: new GraphNode({id: '4', labels: ['bar']}),
+                labels: ['Edge Label']
             });
             const design = store.getEdgeDesign(unrelatedEdge);
             expect(design).toBe(store.config.edgeDesign.default);

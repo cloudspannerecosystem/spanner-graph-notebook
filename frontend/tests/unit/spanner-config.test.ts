@@ -36,13 +36,13 @@ describe('GraphConfig', () => {
         mockNodesData = [
             {
                 id: 1,
-                label: 'Person',
+                labels: ['Person'],
                 properties: {name: 'John', age: 30},
                 key_property_names: ['id']
             },
             {
                 id: 2,
-                label: 'Company',
+                labels: ['Company'],
                 properties: {name: 'Google', location: 'CA'},
                 key_property_names: ['id']
             }
@@ -51,7 +51,7 @@ describe('GraphConfig', () => {
         mockEdgesData = [
             {
                 id: 1,
-                label: 'WORKS_AT',
+                labels: ['WORKS_AT'],
                 from: 1,
                 to: 2,
                 properties: {since: 2020},
@@ -147,8 +147,8 @@ describe('GraphConfig', () => {
 
             expect(config.nodes.length).toBe(2);
             expect(config.nodes[0]).toBeInstanceOf(GraphNode);
-            expect(config.nodes[0].label).toBe('Person');
-            expect(config.nodes[1].label).toBe('Company');
+            expect(config.nodes[0].labels).toEqual(['Person']);
+            expect(config.nodes[1].labels).toEqual(['Company']);
         });
     });
 
@@ -165,17 +165,17 @@ describe('GraphConfig', () => {
 
             expect(config.edges.length).toBe(1);
             expect(config.edges[0]).toBeInstanceOf(Edge);
-            expect(config.edges[0].label).toBe('WORKS_AT');
+            expect(config.edges[0].labels).toEqual(['WORKS_AT']);
             expect(config.edges[0].from).toBe(1);
             expect(config.edges[0].to).toBe(2);
         });
 
         it('should handle invalid edge data gracefully', () => {
             const invalidEdgesData = [
-                {invalid: 'data'},
+                {invalid: 'data', labels: ['foo']},
                 null,
                 undefined,
-                {id: 1, label: 'WORKS_AT'}
+                {id: 1, labels: ['WORKS_AT']}
             ];
 
             const config = new GraphConfig({
@@ -212,7 +212,7 @@ describe('GraphConfig', () => {
                 ...mockNodesData,
                 {
                     id: 3,
-                    label: 'Person',
+                    labels: ['Person'],
                     properties: {name: 'Jane', age: 25},
                     key_property_names: ['id']
                 }

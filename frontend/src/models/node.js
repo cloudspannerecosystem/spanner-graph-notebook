@@ -61,7 +61,7 @@ class Node extends GraphObject {
 
     /**
      * @typedef {Object} NodeData - The label shown in the sidebar or graph.
-     * @property {string} label
+     * @property {string[]} labels
      * @property {Object} properties - An optional property:value map.
      * @property {Object} key_property_names
      * @property {string} color
@@ -72,18 +72,17 @@ class Node extends GraphObject {
     * A node on the graph
     *
     * @param {Object} params
-    * @param {string} params.label - The label for the edge.
     * @param {string|Object} params.title - The optional property:value map for the edge.
     * @param {string} params.color - The color of the edge
      * @param {string} params.uid - The "identifier" property found in Spanner
     * @extends GraphObject
     */
-    constructor({ label, title, properties, value, id, neighborhood, color, key_property_names, uid }) {
-        super({ label, title, properties, key_property_names });
+    constructor({ labels, title, properties, value, id, neighborhood, color, key_property_names, uid }) {
+        super({ labels, title, properties, key_property_names });
 
         if (typeof id != 'number') {
             this.instantiationErrorReason = "Node does not have an ID";
-            console.error(this.instantiationErrorReason, { label, title, value, id });
+            console.error(this.instantiationErrorReason, { labels, title, value, id });
             return;
         }
 

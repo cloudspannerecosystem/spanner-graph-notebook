@@ -153,7 +153,6 @@ class Node:
         self.identifier = identifier
         self.labels = labels
         self.key_property_names = []
-        self.label_str = ""
         self.properties = properties
 
     def __repr__(self):
@@ -168,22 +167,6 @@ class Node:
             labels=data.get("labels", []),
             properties=data.get("properties", {}),
         )
-
-    def decide_label_string(self, node_display_props: dict[str, str]) -> None:
-        """Returns the label string for the node."""
-        if not node_display_props:
-            self.label_str = "|".join(self.labels)
-        else:
-            for label in self.labels:
-                label_case_incens = label.lower()
-                if label_case_incens in node_display_props:
-                    prop = node_display_props[label_case_incens]
-                    if prop in self.properties:
-                        val = self.properties[prop]
-                        self.label_str = f"{label} ({val})"
-                        break
-            if not self.label_str:
-                self.label_str = "|".join(self.labels)
 
     def add_to_graph(self, graph: nx.MultiDiGraph,
                      node_mapper: Dict[str, int]) -> None:
@@ -204,7 +187,7 @@ class Node:
             node_id,
             id=node_id,
             uid=self.identifier,
-            label=self.label_str,
+            labels=self.labels,
             properties=self.properties,
             key_property_names=self.key_property_names,
         )
@@ -301,7 +284,6 @@ class Edge:
         self.source = source
         self.destination = destination
         self.labels = labels
-        self.label_str = ""
         self.properties = properties
 
     def __repr__(self):
@@ -361,22 +343,6 @@ class Edge:
         except KeyError:
             return False
 
-    def decide_label_string(self, edge_display_props: dict[str, str]) -> None:
-        """Returns the label string for the edge."""
-        if not edge_display_props:
-            self.label_str = "|".join(self.labels)
-        else:
-            for label in self.labels:
-                label_case_incens = label.lower()
-                if label_case_incens in edge_display_props:
-                    prop = edge_display_props[label_case_incens]
-                    if prop in self.properties:
-                        val = self.properties[prop]
-                        self.label_str = f"{label} ({val})"
-                        break
-            if not self.label_str:
-                self.label_str = "|".join(self.labels)
-
     def add_to_graph(self, graph: nx.MultiDiGraph,
                      node_mapping: Dict[str, int], numerical_id: number) -> None:
         """Add this edge to a NetworkX graph using the `node_mapping` to find
@@ -401,6 +367,6 @@ class Edge:
                 id=numerical_id,
                 source=source,
                 target=destination,
-                label=self.label_str,
+                labels=self.labels,
                 properties=self.properties,
             )

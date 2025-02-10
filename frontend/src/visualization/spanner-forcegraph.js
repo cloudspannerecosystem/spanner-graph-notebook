@@ -160,6 +160,8 @@ class GraphVisualization {
 
     enterFullscreenSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#3C4043"><path d="M120-120v-200h80v120h120v80H120Zm520 0v-80h120v-120h80v200H640ZM120-640v-200h200v80H200v120h-80Zm640 0v-120H640v-80h200v200h-80Z"/></svg>`;
     exitFullscreenSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#3C4043"><path d="M240-120v-120H120v-80h200v200h-80Zm400 0v-200h200v80H720v120h-80ZM120-640v-80h120v-120h80v200H120Zm520 0v-200h80v120h120v80H640Z"/></svg>`;
+    incomingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M320-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-100 0-170-70T80-480q0-100 70-170t170-70q90 0 156.5 57T557-520h323v80H557q-14 86-80.5 143T320-240Zm0-240Z"/></svg>`;
+    outgoingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M640-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-90 0-156.5-57T403-440H80v-80h323q14-86 80.5-143T640-720q100 0 170 70t70 170q0 100-70 170t-170 70Zm0-240Z"/></svg>`;
 
     /**
      * Renders a graph visualization.
@@ -822,7 +824,7 @@ class GraphVisualization {
                             return;
                         }
 
-                        let label = node.label;
+                        let label = node.getDisplayName();
                         if (this.store.config.viewMode === GraphConfig.ViewModes.DEFAULT && node.identifiers.length > 0) {
                             label += ` (${node.identifiers.join(', ')})`;
                         }
@@ -883,7 +885,7 @@ class GraphVisualization {
                             ctx.fillStyle = '#fff';
 
                             // 1. First, handle the regular font part ("NodeType ")
-                            const prefixLabel = `${node.label} `;
+                            const prefixLabel = `${node.getDisplayName()} `;
                             ctx.font = `${fontSize}px 'Google Sans', Roboto, Arial, sans-serif`;
                             const prefixRect = ctx.measureText(prefixLabel);
 
@@ -919,7 +921,7 @@ class GraphVisualization {
         }
         let content = `
             <div class="graph-element-tooltip" style="background-color: ${color}">
-                <div><strong>${this.sanitize(element.label)}</strong></div>`;
+                <div><strong>${this.sanitize(element.getDisplayName())}</strong></div>`;
 
         if (element.properties) {
             if (element.key_property_names.length === 1) {
@@ -1072,7 +1074,7 @@ class GraphVisualization {
                         if (textAngle < -Math.PI / 2) textAngle = -(-Math.PI - textAngle);
 
                         // Calculate font size based on link length
-                        let label = link.label;
+                        let label = link.getDisplayName();
                         let labelTail = '';
 
                         let maxTextLength = 50;
@@ -1161,11 +1163,17 @@ class GraphVisualization {
 
         const edgeDirections = {};
         for (const edge of this.store.getEdgesOfNode(node)) {
-            if (edgeDirections[edge.label]) {
+            if (edgeDirections[edge.getDisplayName()]) {
                 continue;
             }
-            edgeDirections[edge.label] = edge.source === node ? '->' : '<-';
+            edgeDirections[edge.getDisplayName()] = edge.source === node ? '->' : '<-';
         }
+
+        const edgeButtons = this.store.getEdgeTypesOfNode(node).map(({label, direction}) => {
+           const directionSvg = direction === Edge.Direction.INCOMING ? this.incomingEdgeSvg : this.outgoingEdgeSvg;
+
+           return `<div class="context-menu-item node-expand-edge" data-direction="${direction}">${directionSvg} ${label}</div>`;
+        });
 
         const html = `
             <div class="graph-context-menu">
@@ -1174,8 +1182,7 @@ class GraphVisualization {
                     <span class="submenu-arrow">›</span>
                     <div class="submenu">
                         <div class="context-menu-item" id="context-menu-all-edges-button"">All edges</div>
-                        ${Object.keys(edgeDirections).map((edgeLabel) => 
-                            `<div class="context-menu-item node-expand-edge" data-direction="${edgeDirections[edgeLabel]}">${edgeDirections[edgeLabel]} ${edgeLabel}</div>`).join('')}
+                        ${edgeButtons.join('')}
                     </div>
                 </div>
                 <div id="context-menu-hide-button" class="context-menu-item">Hide</div>

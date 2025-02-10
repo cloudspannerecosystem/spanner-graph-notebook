@@ -21,7 +21,7 @@ describe('Node', () => {
 
     beforeEach(() => {
         graphNode = new GraphNode({
-            label: 'Test Node',
+            labels: ['Test Node'],
             id: 1,
             value: 100,
             neighborhood: 2,
@@ -38,18 +38,18 @@ describe('Node', () => {
         expect(graphNode).toBeDefined();
         expect(graphNode.id).toBe(1);
         expect(graphNode.value).toBe(100);
-        expect(graphNode.label).toBe('Test Node');
+        expect(graphNode.labels).toEqual(['Test Node']);
         expect(graphNode.instantiated).toBe(true);
     });
 
     it('should throw error when id is invalid', () => {
         expect((new GraphNode({
-            label: 'Invalid Node',
+            labels: ['Invalid Node'],
             id: 'not-a-number'
         })).instantiationErrorReason).toBe("Node does not have an ID");
 
         expect((new GraphNode({
-            label: 'Invalid Node',
+            labels: ['Invalid Node'],
             // missing ID
         })).instantiationErrorReason).toBe("Node does not have an ID");
     });
