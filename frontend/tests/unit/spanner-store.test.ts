@@ -32,8 +32,8 @@ describe('GraphStore', () => {
     let mockEdge: typeof Edge;
 
     beforeEach(() => {
-        mockNode1 = new GraphNode({id: '1', labels: ['TestLabel1'], neighborhood: 1});
-        mockNode2 = new GraphNode({id: '2', labels: ['TestLabel2'], neighborhood: 2});
+        mockNode1 = new GraphNode({id: '1', uid: '1', labels: ['TestLabel1'], neighborhood: 1});
+        mockNode2 = new GraphNode({id: '2', uid: '2', labels: ['TestLabel2'], neighborhood: 2});
         mockEdge = new Edge({source: mockNode1, target: mockNode2, labels: ['testEdgeLabel1']});
 
         const mockPropertyDeclarations = [
@@ -246,11 +246,194 @@ describe('GraphStore', () => {
         });
     });
 
-    describe('Node Color Management', () => {
+    describe('Nodes', () => {
+        it('should retrieve an array of nodes in default view mode', () => {
+            store.setViewMode(GraphConfig.ViewModes.DEFAULT);
+            const nodes = store.getNodes();
+            expect(nodes).toHaveLength(2);
+            expect(nodes).toContainEqual(mockNode1);
+            expect(nodes).toContainEqual(mockNode2);
+        });
+
+        it('should retrieve schema nodes in schema view mode', () => {
+            // Set up some schema nodes
+            const schemaNode1 = new GraphNode({id: '1', uid: '1', labels: ['Users']});
+            const schemaNode2 = new GraphNode({id: '2', uid: '2', labels: ['Posts']});
+            store.config.schemaNodes = {
+                [schemaNode1.uid]: schemaNode1,
+                [schemaNode2.uid]: schemaNode2
+            };
+
+            store.setViewMode(GraphConfig.ViewModes.SCHEMA);
+            const nodes = store.getNodes();
+            expect(nodes).toHaveLength(2);
+            expect(nodes).toContainEqual(schemaNode1);
+            expect(nodes).toContainEqual(schemaNode2);
+        });
+
+        it('should return empty array for unsupported view mode', () => {
+            // @ts-ignore - Intentionally setting invalid view mode for test
+            store.config.viewMode = 'INVALID_MODE';
+            const nodes = store.getNodes();
+            expect(nodes).toHaveLength(0);
+        });
+
         it('should get color by label', () => {
             store.config.nodeColors = {'TestLabel1': 'red'};
             const color = store.getColorForNodeByLabel(mockNode1);
             expect(color).toBe('red');
+        });
+
+        it('should handle various id formats correctly', () => {
+            expect((new GraphNode({ id: '123', uid: '1', labels: ['Test'] })).instantiated).toBe(true);
+            expect((new GraphNode({ id: 123, uid: '1', labels: ['Test'] })).instantiated).toBe(true);
+            expect((new GraphNode({ id: undefined, uid: '1', labels: ['Test'] })).instantiated).toBe(false);
+            expect((new GraphNode({ id: NaN, uid: '1', labels: ['Test'] })).instantiated).toBe(false);
+            expect((new GraphNode({ id: {}, uid: '1', labels: ['Test'] })).instantiated).toBe(false);
+            expect((new GraphNode({ id: 'foo', uid: '1', labels: ['Test'] })).instantiated).toBe(false);
+        });
+
+        it('should properly handle uid field', () => {
+            const node = new GraphNode({ 
+                id: 1, 
+                uid: 'custom-uid',
+                labels: ['Test']
+            });
+            expect(node.uid).toBe('custom-uid');
+        });
+
+        it('should handle duplicate UIDs in node construction', () => {
+            const node1 = new GraphNode({ id: 1, uid: 'same-uid', labels: ['Test1'] });
+            const node2 = new GraphNode({ id: 2, uid: 'same-uid', labels: ['Test2'] });
+            
+            // Create a new config with duplicate UIDs
+            const configWithDupes = new GraphConfig({
+                nodesData: [node1, node2],
+                edgesData: [],
+                colorScheme: GraphConfig.ColorScheme.LABEL,
+                rowsData: [],
+                schemaData: null
+            });
+
+            // The last node with the same UID should be the one that remains
+            expect(Object.keys(configWithDupes.nodes)).toHaveLength(1);
+            expect(configWithDupes.nodes['same-uid']).toEqual(node2);
+        });
+
+        it('should properly convert node arrays to maps', () => {
+            const nodeArray = [
+                new GraphNode({ id: 1, uid: 'uid1', labels: ['Test1'] }),
+                new GraphNode({ id: 2, uid: 'uid2', labels: ['Test2'] }),
+                new GraphNode({ id: 3, uid: 'uid3', labels: ['Test3'] })
+            ];
+
+            const configFromArray = new GraphConfig({
+                nodesData: nodeArray,
+                edgesData: [],
+                colorScheme: GraphConfig.ColorScheme.LABEL,
+                rowsData: [],
+                schemaData: null
+            });
+
+            // Verify the conversion to map
+            expect(Object.keys(configFromArray.nodes)).toHaveLength(3);
+            expect(configFromArray.nodes['uid1'].id).toBe(1);
+            expect(configFromArray.nodes['uid2'].id).toBe(2);
+            expect(configFromArray.nodes['uid3'].id).toBe(3);
+        });
+
+        it('should maintain node references when converting between formats', () => {
+            // Create nodes and edges with references
+            const node1 = new GraphNode({ id: 1, uid: 'uid1', labels: ['Test1'] });
+            const node2 = new GraphNode({ id: 2, uid: 'uid2', labels: ['Test2'] });
+            const edge = new Edge({ source: node1, target: node2, labels: ['connects'] });
+
+            const config = new GraphConfig({
+                nodesData: [node1, node2],
+                edgesData: [edge],
+                colorScheme: GraphConfig.ColorScheme.LABEL,
+                rowsData: [],
+                schemaData: null
+            });
+
+            const store = new GraphStore(config);
+            const nodes = store.getNodes();
+
+            // Verify nodes in array maintain same references
+            const node1InArray = nodes.find((n: typeof GraphNode) => n.uid === 'uid1');
+            const node2InArray = nodes.find((n: typeof GraphNode) => n.uid === 'uid2');
+            expect(node1InArray).toBe(config.nodes['uid1']);
+            expect(node2InArray).toBe(config.nodes['uid2']);
+        });
+
+        it('should maintain consistent node order in different view modes', () => {
+            // Create a set of nodes with specific order
+            const nodes = Array.from({ length: 5 }, (_, i) => 
+                new GraphNode({ 
+                    id: i + 1, 
+                    uid: `uid${i + 1}`, 
+                    labels: [`Test${i + 1}`],
+                    properties: { order: i + 1 }
+                })
+            );
+
+            const config = new GraphConfig({
+                nodesData: nodes,
+                edgesData: [],
+                colorScheme: GraphConfig.ColorScheme.LABEL,
+                rowsData: [],
+                schemaData: null
+            });
+
+            const store = new GraphStore(config);
+
+            // Get nodes in default mode and verify order
+            store.setViewMode(GraphConfig.ViewModes.DEFAULT);
+            const defaultNodes = store.getNodes();
+            defaultNodes.forEach((node: typeof GraphNode, index: number) => {
+                expect(node.properties.order).toBe(index + 1);
+            });
+
+            // Switch view mode and verify order remains consistent
+            store.setViewMode(GraphConfig.ViewModes.SCHEMA);
+            store.config.schemaNodes = config.nodes; // Set same nodes as schema nodes for testing
+            const schemaNodes = store.getNodes();
+            schemaNodes.forEach((node: typeof GraphNode, index: number) => {
+                expect(node.properties.order).toBe(index + 1);
+            });
+        });
+
+        it('should handle large node sets efficiently', () => {
+            // Create a large set of nodes (1000 nodes)
+            const largeNodeSet = Array.from({ length: 1000 }, (_, i) => 
+                new GraphNode({ 
+                    id: i + 1, 
+                    uid: `uid${i + 1}`, 
+                    labels: [`Test${i + 1}`] 
+                })
+            );
+
+            const config = new GraphConfig({
+                nodesData: largeNodeSet,
+                edgesData: [],
+                colorScheme: GraphConfig.ColorScheme.LABEL,
+                rowsData: [],
+                schemaData: null
+            });
+
+            const store = new GraphStore(config);
+
+            // Measure time for node retrieval
+            const startTime = performance.now();
+            const nodes = store.getNodes();
+            const endTime = performance.now();
+
+            // Verify all nodes are present
+            expect(nodes).toHaveLength(1000);
+            
+            // Performance assertion - should take less than 50ms
+            // Note: This threshold might need adjustment based on the environment
+            expect(endTime - startTime).toBeLessThan(50);
         });
     });
 

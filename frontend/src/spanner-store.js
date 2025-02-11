@@ -440,14 +440,17 @@ class GraphStore {
      * @returns {Array<Node>|*[]}
      */
     getNodes() {
+        let nodeMap = {}
         switch (this.config.viewMode) {
             case GraphConfig.ViewModes.DEFAULT:
-                return this.config.nodes;
+                nodeMap = this.config.nodes;
+                break;
             case GraphConfig.ViewModes.SCHEMA:
-                return this.config.schemaNodes;
-            default:
-                return [];
+                nodeMap = this.config.schemaNodes;
+                break;
         }
+
+        return Object.keys(nodeMap).map(uid => nodeMap[uid]);
     }
 
     /**

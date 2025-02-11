@@ -4,6 +4,7 @@
       {
         "id": 1,
         "labels": ["Person"],
+        "uid": "1",
         "properties": {
           "birthday": "1991-12-21T08:00:00Z",
           "city": "Adelaide",
@@ -21,6 +22,7 @@
       },
       {
         "id": 2,
+        "uid": "2",
         "labels": ["Account"],
         "properties": {
           "account_level": "Silver level",
@@ -41,6 +43,7 @@
       },
       {
         "id": 3,
+        "uid": "3",
         "labels": ["Account"],
         "properties": {
           "account_level": "Gold level",
@@ -61,6 +64,7 @@
       },
       {
         "id": 4,
+        "uid": "4",
         "labels": ["Account"],
         "properties": {
           "account_level": "Basic level",
@@ -81,6 +85,7 @@
       },
       {
         "id": 5,
+        "uid": "5",
         "labels": ["Account"],
         "properties": {
           "account_level": "Basic level",
@@ -101,6 +106,7 @@
       },
       {
         "id": 6,
+        "uid": "6",
         "labels": ["Person"],
         "properties": {
           "birthday": "1998-04-16T07:00:00Z",
@@ -119,6 +125,7 @@
       },
       {
         "id": 7,
+        "uid": "7",
         "labels": ["Person"],
         "properties": {
           "birthday": "1981-08-12T07:00:00Z",
@@ -137,6 +144,7 @@
       },
       {
         "id": 8,
+        "uid": "8",
         "labels": ["Account"],
         "properties": {
           "account_level": "Basic level",
@@ -157,6 +165,7 @@
       },
       {
         "id": 9,
+        "uid": "9",
         "labels": ["Account"],
         "properties": {
           "account_level": "Silver level",
@@ -177,6 +186,7 @@
       },
       {
         "id": 10,
+        "uid": "10",
         "labels": ["Person"],
         "properties": {
           "birthday": "1980-10-31T08:00:00Z",
@@ -195,6 +205,7 @@
       },
       {
         "id": 11,
+        "uid": "11",
         "labels": ["Person"],
         "properties": {
           "birthday": "1980-08-01T07:00:00Z",

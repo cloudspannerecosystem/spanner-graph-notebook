@@ -19,6 +19,8 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
     Schema = require('./models/schema');
 }
 
+/** @typedef {Record<NodeUID, Node>} NodeMap */
+
 class GraphConfig {
 
     /**
@@ -28,10 +30,10 @@ class GraphConfig {
     schema = null;
 
     /**
-     * The array of node objects to be rendered.
-     * @type {Array<Node>}
+     * A map of nodes where the key is the node's UID and the value is the Node instance.
+     * @type {NodeMap}
      */
-    schemaNodes = [];
+    schemaNodes = {};
 
     /**
      * The array of edge objects to be rendered.
@@ -40,10 +42,10 @@ class GraphConfig {
     schemaEdges = [];
 
     /**
-     * The array of node objects to be rendered.
-     * @type {Array<Node>}
+     * A map of nodes where the key is the node's UID and the value is the Node instance.
+     * @type {NodeMap}
      */
-    nodes = [];
+    nodes = {};
 
     /**
      * The array of edge objects to be rendered.
@@ -175,17 +177,19 @@ class GraphConfig {
     }
 
     /**
-     * @param nodes
+     * @param {NodeMap} nodeMap
      * @returns {{}} Color map by the node's label
      */
-    assignColors(nodes) {
+    assignColors(nodeMap) {
         const colors = {};
         const colorPalette = this.colorPalette.map(color => color);
 
-        if (!nodes || !nodes instanceof Array) {
-            console.error('Nodes must be array', nodes);
-            throw Error('Nodes must be an array');
+        if (!nodeMap || !nodeMap instanceof Object) {
+            console.error('node map must be an object', nodeMap);
+            throw Error('node map must be an object');
         }
+
+        const nodes = Object.keys(nodeMap).map(uid => nodeMap[uid]);
 
         nodes.forEach(node => {
             if (colorPalette.length === 0) {
@@ -233,12 +237,14 @@ class GraphConfig {
                 /**
                  * @type {NodeData}
                  */
+                const id = this.schema.getNodeTableId(nodeTable);
                 return {
                     labels: nodeTable.labelNames,
                     properties: this.schema.getPropertiesOfTable(nodeTable),
                     color: 'rgb(0, 0, 100)', // this isn't used
                     key_property_names: ['id'],
-                    id: this.schema.getNodeTableId(nodeTable)
+                    uid: i,
+                    id
                 };
             }
         );
@@ -280,8 +286,8 @@ class GraphConfig {
             throw Error('Nodes must be an array');
         }
 
-        /** @type {Node[]} */
-        const nodes = []
+        /** @type {NodeMap} */
+        const nodes = {};
         nodesData.forEach(nodeData => {
             if (!(nodeData instanceof Object)) {
                 console.error('Node data is not an object', nodeData);
@@ -295,7 +301,7 @@ class GraphConfig {
                 return;
             }
             if (node instanceof Node && node.instantiated) {
-                nodes.push(node);
+                nodes[node.uid] = node;
             } else {
                 node.instantiationErrorReason = 'Could not construct an instance of Node';
                 console.error(node.instantiationErrorReason, { nodeData, node });

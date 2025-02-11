@@ -17,6 +17,8 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
     GraphObject = require('./graph-object');
 }
 
+/** @typedef {string} NodeUID */
+
 /**
  * Represents a graph node.
  * @class
@@ -43,7 +45,7 @@ class Node extends GraphObject {
 
     /**
      * Corresponds to "identifier" in Spanner
-     * @type {string}
+     * @type {NodeUID}
      */
     uid = '';
 
@@ -58,6 +60,11 @@ class Node extends GraphObject {
      * @type {[string]}
      */
     identifiers = [];
+
+    /**
+     * @type {boolean}
+     */
+    instantiated = false;
 
     /**
      * @typedef {Object} NodeData - The label shown in the sidebar or graph.
@@ -80,9 +87,15 @@ class Node extends GraphObject {
     constructor({ labels, title, properties, value, id, neighborhood, color, key_property_names, uid }) {
         super({ labels, title, properties, key_property_names });
 
-        if (typeof id != 'number') {
+        if (isNaN(id)) {
             this.instantiationErrorReason = "Node does not have an ID";
-            console.error(this.instantiationErrorReason, { labels, title, value, id });
+            console.error(this.instantiationErrorReason, { labels, title, properties, value, id, neighborhood, color, key_property_names, uid });
+            return;
+        }
+
+        if (uid === undefined || uid === '' || uid === null) {
+            this.instantiationErrorReason = "Node does not have a UID";
+            console.error(this.instantiationErrorReason, { labels, title, properties, value, id, neighborhood, color, key_property_names, uid });
             return;
         }
 

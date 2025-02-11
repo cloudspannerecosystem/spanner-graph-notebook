@@ -23,6 +23,7 @@ describe('Node', () => {
         graphNode = new GraphNode({
             labels: ['Test Node'],
             id: 1,
+            uid: '1',
             value: 100,
             neighborhood: 2,
             color: '#ffffff',
@@ -37,6 +38,7 @@ describe('Node', () => {
     it('should create a valid node with required parameters', () => {
         expect(graphNode).toBeDefined();
         expect(graphNode.id).toBe(1);
+        expect(graphNode.uid).toBe('1');
         expect(graphNode.value).toBe(100);
         expect(graphNode.labels).toEqual(['Test Node']);
         expect(graphNode.instantiated).toBe(true);
