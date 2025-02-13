@@ -113,15 +113,9 @@ class SpannerApp {
                     query_result
                 } = response;
 
-                const fixedEdges = edges.map(edge => ({
-                    ...edge,
-                    to: edge.to instanceof Number ? edge.to : edge.target,
-                    from: edge.from instanceof Number ? edge.from : edge.source
-                }));
-
                 const graphConfig = new GraphConfig({
                     nodesData: nodes,
-                    edgesData: fixedEdges,
+                    edgesData: edges,
                     colorScheme: GraphConfig.ColorScheme.LABEL,
                     rowsData: rows,
                     schemaData: schema,
@@ -163,7 +157,11 @@ class SpannerApp {
                     (node, config) => {
                         this.server.nodeExpansion(node)
                             .then(response => {
-                                // Handle response and update graph
+                                if (!response) {
+                                    return;
+                                }
+                                
+                                this.store.appendGraphData(response.response.nodes, response.response.edges);
                             });
                     });
 

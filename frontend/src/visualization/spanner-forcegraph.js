@@ -272,6 +272,15 @@ class GraphVisualization {
         store.addEventListener(GraphStore.EventTypes.LAYOUT_MODE_CHANGE,
             (layoutMode, lastLayoutMode) => this.onLayoutModeChange(layoutMode, lastLayoutMode));
 
+            // Subscribe to graph data updates
+        this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (nodes, edges, config) => {
+            const graphData = {
+                nodes: nodes,
+                links: this._computeCurvature(edges)
+            };
+            this.graph.graphData(graphData);
+        });
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 this.store.setSelectedObject(null); // Deselect any selected node/edge
@@ -526,10 +535,10 @@ class GraphVisualization {
         const {nodes, links} = this.graph.graphData();
 
         this.selectedNodeEdges = links.filter(
-            link => link.source.id === node.id || link.target.id === node.id);
+            link => link.source.uid === node.uid || link.target.uid === node.uid);
 
         this.selectedNodeNeighbors = nodes.filter(n => {
-            const selectedEdges = this.selectedNodeEdges.filter(link => link.source.id === n.id || link.target.id === n.id);
+            const selectedEdges = this.selectedNodeEdges.filter(link => link.source.uid === n.uid || link.target.uid === n.uid);
             const containsEdges = selectedEdges.length > 0;
             if (containsEdges) {
                 this.selectedNodeEdges.push(...selectedEdges);
@@ -574,14 +583,14 @@ class GraphVisualization {
         }
 
         const {nodes, links} = this.graph.graphData();
-        const focusedNodeEdges = links.filter(link => link.source.id === node.id || link.target.id === node.id);
+        const focusedNodeEdges = links.filter(link => link.source.uid === node.uid || link.target.uid === node.uid);
         this.focusedNodeEdges.push(...focusedNodeEdges);
         this.focusedNodeNeighbors = nodes.filter(n => {
-            if (n.id === node.id) {
+            if (n.uid === node.uid) {
                 return false;
             }
 
-            const focusedEdges = this.focusedNodeEdges.filter(link => link.source.id === n.id || link.target.id === n.id);
+            const focusedEdges = this.focusedNodeEdges.filter(link => link.source.uid === n.uid || link.target.uid === n.uid);
             return focusedEdges.length > 0;
         });
     }
@@ -614,40 +623,52 @@ class GraphVisualization {
         // 2. group links together that share the same two nodes or are self-loops
         for (let i = 0; i < links.length; i++) {
             const link = links[i];
-            const sourceId = link.from;
-            const targetId = link.to;
-            link.curvature = 0;
-            link.nodePairId = sourceId <= targetId ? (sourceId + "_" + targetId) : (targetId + "_" + sourceId);
+            const sourceId = link.sourceUid;
+            const targetId = link.destinationUid;
+            link.curvature.amount = 0;
+            
+            // Create consistent nodePairId regardless of direction by always putting smaller ID first
+            // Using localeCompare for proper string comparison
+            link.curvature.nodePairId = sourceId.localeCompare(targetId) <= 0 ?
+                `${sourceId}_${targetId}` : 
+                `${targetId}_${sourceId}`;
+            
             let map = sourceId === targetId ? selfLoopLinks : sameNodesLinks;
-            if (!map[link.nodePairId]) {
-                map[link.nodePairId] = [];
+            if (!map[link.curvature.nodePairId]) {
+                map[link.curvature.nodePairId] = [];
             }
-            map[link.nodePairId].push(link);
+            map[link.curvature.nodePairId].push(link);
         }
 
         // Compute the curvature for self-loop links to avoid overlaps
         Object.keys(selfLoopLinks).forEach(id => {
             let links = selfLoopLinks[id];
             let lastIndex = links.length - 1;
-            links[lastIndex].curvature = 1;
-            let delta = (1 - curvatureMinMax) / lastIndex;
+            links[lastIndex].curvature.amount = 1;
+            let delta = (1 - curvatureMinMax) / Math.max(1, lastIndex);
             for (let i = 0; i < lastIndex; i++) {
-                links[i].curvature = curvatureMinMax + i * delta;
+                links[i].curvature.amount = curvatureMinMax + i * delta;
             }
         });
 
         // Compute the curvature for links sharing the same two nodes to avoid overlaps
-        Object.keys(sameNodesLinks).filter(nodePairId => sameNodesLinks[nodePairId].length > 1).forEach(nodePairId => {
+        Object.keys(sameNodesLinks).forEach(nodePairId => {
             let links = sameNodesLinks[nodePairId];
+            if (links.length <= 1) {
+                return; // Skip if only one link between nodes
+            }
+            
             let lastIndex = links.length - 1;
             let lastLink = links[lastIndex];
-            lastLink.curvature = curvatureMinMax;
-            let delta = 2 * curvatureMinMax / lastIndex;
+            lastLink.curvature.amount = curvatureMinMax;
+            let delta = 2 * curvatureMinMax / Math.max(1, lastIndex);
+            
             for (let i = 0; i < lastIndex; i++) {
                 const link = links[i];
-                links[i].curvature = -curvatureMinMax + i * delta;
-                if (lastLink.from !== links[i].from) {
-                    links[i].curvature *= -1; // flip it around, otherwise they overlap
+                link.curvature.amount = -curvatureMinMax + i * delta;
+                // Compare strings properly using localeCompare
+                if (lastLink.sourceUid.localeCompare(link.sourceUid) !== 0) {
+                    link.curvature.amount *= -1; // flip it around, otherwise they overlap
                 }
             }
         });
@@ -667,7 +688,7 @@ class GraphVisualization {
                 .linkDirectionalArrowLength(4)
                 .calculateLineLengthByCluster()
                 .linkDirectionalArrowRelPos(0.9875)
-                .linkCurvature('curvature')
+                .linkCurvature(link => link.curvature.amount)
                 .linkWidth(link => {
                     let edgeDesign = this.store.getEdgeDesign(link);
                     return edgeDesign.width;
@@ -1009,6 +1030,7 @@ class GraphVisualization {
 
                         const start = link.source;
                         const end = link.target;
+
                         if (typeof start !== 'object' || typeof end !== 'object') return;
 
                         // Initialize text position
@@ -1258,11 +1280,11 @@ class GraphVisualization {
             // that issue.
             .width(this.mount.offsetWidth)
             .height(this.mount.clientHeight)
-            .nodeId('id')
+            .nodeId('uid')
             .nodeVal('value')
             .nodeColor('color')
-            .linkSource('source')
-            .linkTarget('target')
+            .linkSource('sourceUid')
+            .linkTarget('destinationUid')
             .linkLabel(link => '')
             .autoPauseRedraw(false)
             .onNodeHover(node => {

@@ -17,47 +17,37 @@
 const GraphNode = require('../../../src/models/node.js');
 
 describe('Node', () => {
-    let graphNode: typeof GraphNode;
-
-    beforeEach(() => {
-        graphNode = new GraphNode({
-            labels: ['Test Node'],
-            id: 1,
-            uid: '1',
-            value: 100,
-            neighborhood: 2,
-            color: '#ffffff',
-            properties: {
-                name: 'Node Name',
-                type: 'example'
-            },
-            key_property_names: ['name', 'type']
-        });
-    });
+    const validNodeData = {
+        labels: ['Test Node'],
+        properties: {
+            name: 'Node Name',
+            type: 'example'
+        },
+        key_property_names: ['name', 'type'],
+        identifier: '1',
+    };
 
     it('should create a valid node with required parameters', () => {
+        const graphNode = new GraphNode(validNodeData);
         expect(graphNode).toBeDefined();
-        expect(graphNode.id).toBe(1);
-        expect(graphNode.uid).toBe('1');
-        expect(graphNode.value).toBe(100);
+        expect(graphNode.uid).toEqual('1');
         expect(graphNode.labels).toEqual(['Test Node']);
         expect(graphNode.instantiated).toBe(true);
     });
 
-    it('should throw error when id is invalid', () => {
-        expect((new GraphNode({
-            labels: ['Invalid Node'],
-            id: 'not-a-number'
-        })).instantiationErrorReason).toBe("Node does not have an ID");
+    describe('Identifiers', () => {
+        it('should parse identifiers from properties using key_property_names', () => {
+            const graphNode = new GraphNode(validNodeData);
+            expect(graphNode.identifiers).toEqual(['Node Name', 'example']);
+        });
 
-        expect((new GraphNode({
-            labels: ['Invalid Node'],
-            // missing ID
-        })).instantiationErrorReason).toBe("Node does not have an ID");
+        it('should return default identifier if no matching properties are found', () => {
+            const graphNode = new GraphNode({
+                ...validNodeData,
+                properties: {}
+            });
+
+            expect(graphNode.identifiers).toEqual(['Node']);
+        });
     });
-
-    it('should parse identifiers from properties using key_property_names', () => {
-        expect(graphNode.identifiers).toEqual(['Node Name', 'example']);
-    });
-
 });

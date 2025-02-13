@@ -25,81 +25,68 @@ const Edge = require('../../src/models/edge.js');
 const Schema = require('../../src/models/schema.js');
 
 describe('GraphConfig', () => {
-    // @ts-ignore
-    let mockNodesData;
-    // @ts-ignore
-    let mockEdgesData;
-    // @ts-ignore
-    let mockSchemaData;
-
-    beforeEach(() => {
-        mockNodesData = [
+    let mockNodesData = [
+        {
+            identifier: "1",
+            labels: ['Person'],
+            properties: {name: 'John', age: 30},
+            key_property_names: ['id']
+        },
+        {
+            identifier: "2",
+            labels: ['Company'],
+            properties: {name: 'Google', location: 'CA'},
+            key_property_names: ['id']
+        }
+    ];
+    let mockEdgesData = [
+        {
+            identifier: "edge-1",
+            source_node_identifier: "1",
+            destination_node_identifier: "2",
+            labels: ['WORKS_AT'],
+            properties: {since: 2020},
+            key_property_names: ['id']
+        }
+    ];
+    let mockSchemaData = {
+        nodeTables: [
             {
-                id: 1,
-                uid: 1,
-                labels: ['Person'],
-                properties: {name: 'John', age: 30},
-                key_property_names: ['id']
+                name: 'Person',
+                labelNames: ['Person'],
+                columns: [
+                    {name: 'id', type: 'STRING'},
+                    {name: 'name', type: 'STRING'},
+                    {name: 'age', type: 'INT64'}
+                ]
             },
             {
-                id: 2,
-                uid: 2,
-                labels: ['Company'],
-                properties: {name: 'Google', location: 'CA'},
-                key_property_names: ['id']
+                name: 'Company',
+                labelNames: ['Company'],
+                columns: [
+                    {name: 'id', type: 'STRING'},
+                    {name: 'name', type: 'STRING'},
+                    {name: 'location', type: 'STRING'}
+                ]
             }
-        ];
-
-        mockEdgesData = [
+        ],
+        edgeTables: [
             {
-                id: 1,
-                labels: ['WORKS_AT'],
-                from: 1,
-                to: 2,
-                properties: {since: 2020},
-                key_property_names: ['id']
-            }
-        ];
-
-        mockSchemaData = {
-            nodeTables: [
-                {
-                    name: 'Person',
-                    labelNames: ['Person'],
-                    columns: [
-                        {name: 'id', type: 'STRING'},
-                        {name: 'name', type: 'STRING'},
-                        {name: 'age', type: 'INT64'}
-                    ]
+                name: 'WORKS_AT',
+                labelNames: ['WORKS_AT'],
+                columns: [
+                    {name: 'id', type: 'STRING'},
+                    {name: 'since', type: 'INT64'}
+                ],
+                sourceNodeTable: {
+                    nodeTableName: 'Person'
                 },
-                {
-                    name: 'Company',
-                    labelNames: ['Company'],
-                    columns: [
-                        {name: 'id', type: 'STRING'},
-                        {name: 'name', type: 'STRING'},
-                        {name: 'location', type: 'STRING'}
-                    ]
+                destinationNodeTable: {
+                    nodeTableName: 'Company'
                 }
-            ],
-            edgeTables: [
-                {
-                    name: 'WORKS_AT',
-                    labelNames: ['WORKS_AT'],
-                    columns: [
-                        {name: 'id', type: 'STRING'},
-                        {name: 'since', type: 'INT64'}
-                    ],
-                    sourceNodeTable: {
-                        nodeTableName: 'Person'
-                    },
-                    destinationNodeTable: {
-                        nodeTableName: 'Company'
-                    }
-                }
-            ]
-        };
-    });
+            }
+        ]
+    };
 
     describe('constructor', () => {
         it('should create a new GraphConfig instance with default values', () => {
@@ -113,7 +100,7 @@ describe('GraphConfig', () => {
             });
 
             expect(Object.keys(config.nodes).length).toBe(2);
-            expect(config.edges.length).toBe(1);
+            expect(Object.keys(config.edges).length).toBe(1);
             expect(config.colorScheme).toBe(GraphConfig.ColorScheme.NEIGHBORHOOD);
             expect(config.viewMode).toBe(GraphConfig.ViewModes.DEFAULT);
             expect(config.layoutMode).toBe(GraphConfig.LayoutModes.FORCE);
@@ -168,30 +155,12 @@ describe('GraphConfig', () => {
                 schemaData: mockSchemaData
             });
 
-            expect(config.edges.length).toBe(1);
-            expect(config.edges[0]).toBeInstanceOf(Edge);
-            expect(config.edges[0].labels).toEqual(['WORKS_AT']);
-            expect(config.edges[0].from).toBe(1);
-            expect(config.edges[0].to).toBe(2);
-        });
-
-        it('should handle invalid edge data gracefully', () => {
-            const invalidEdgesData = [
-                {invalid: 'data', labels: ['foo']},
-                null,
-                undefined,
-                {id: 1, labels: ['WORKS_AT']}
-            ];
-
-            const config = new GraphConfig({
-                // @ts-ignore
-                nodesData: mockNodesData,
-                edgesData: invalidEdgesData,
-                // @ts-ignore
-                schemaData: mockSchemaData
-            });
-
-            expect(config.edges.length).toBe(0);
+            const edge = config.edges[Object.keys(config.edges)[0]];
+            expect(Object.keys(config.edges).length).toBe(1);
+            expect(edge).toBeInstanceOf(Edge);
+            expect(edge.labels).toEqual(['WORKS_AT']);
+            expect(edge.sourceUid).toEqual("1");
+            expect(edge.destinationUid).toEqual("2");
         });
     });
 
@@ -216,7 +185,7 @@ describe('GraphConfig', () => {
                 // @ts-ignore
                 ...mockNodesData,
                 {
-                    id: 3,
+                    identifier: "3",
                     labels: ['Person'],
                     properties: {name: 'Jane', age: 25},
                     key_property_names: ['id']
@@ -253,7 +222,7 @@ describe('GraphConfig', () => {
             expect(uids.length).toBe(2);
             expect(typeof uids[0]).toEqual("string");
             expect(config.schemaNodes[uids[0]]).toBeInstanceOf(GraphNode);
-            expect(config.schemaEdges.length).toBe(1);
+            expect(Object.keys(config.schemaEdges).length).toBe(1);
             expect(config.schemaNodeColors).toBeDefined();
         });
 
@@ -268,7 +237,7 @@ describe('GraphConfig', () => {
 
             expect(config.schema).toBeNull();
             expect(Object.keys(config.schemaNodes).length).toBe(0);
-            expect(config.schemaEdges.length).toBe(0);
+            expect(Object.keys(config.schemaEdges).length).toBe(0);
         });
     });
 });

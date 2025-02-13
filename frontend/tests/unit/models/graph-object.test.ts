@@ -18,7 +18,7 @@ const GraphObject = require('../../../src/models/graph-object.js');
 describe('Graph Object', () => {
     it('should create a Graph Object instance', () => {
         const graphObject = new GraphObject({
-            labels: ['foo', 'bar'], properties: []
+            labels: ['foo', 'bar'], properties: [], identifier: '1'
         });
 
         expect(graphObject).toBeInstanceOf(GraphObject);
@@ -27,14 +27,22 @@ describe('Graph Object', () => {
     it('should fail to instantiate without labels', () => {
         expect(() => {
             new GraphObject({
-                properties: []
+                properties: [], identifier: '1'
             });
         }).toThrow(new TypeError('labels must be an Array'));
     });
 
+    it('should fail to instantiate without an identifier', () => {
+        expect(() => {
+            new GraphObject({
+                labels: ['foo'], properties: []
+            });
+        }).toThrow(new TypeError('Invalid identifier'));
+    });
+
     it('should return the first label as its display name', () => {
         const graphObject = new GraphObject({
-            labels: ['foo', 'bar'], properties: []
+            labels: ['foo', 'bar'], properties: [], identifier: '1'
         });
 
         expect(graphObject.getDisplayName()).toBe('foo');

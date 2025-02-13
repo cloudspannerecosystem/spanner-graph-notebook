@@ -21,56 +21,76 @@ import portpicker
 from networkx.classes import DiGraph
 import atexit
 
-from spanner_graphs.conversion import prepare_data_for_graphing, columns_to_native_numpy
+from spanner_graphs.conversion import prepare_data_for_graphing, columns_to_native_numpy, get_nodes_edges
 from spanner_graphs.database import get_database_instance
 
 
-def execute_node_expansion(project: str, instance: str, database: str, node_key_property_name: str, node_key_property_value: str, graph: str, uid: str):
+def execute_node_expansion(
+    project: str,
+    instance: str,
+    database: str,
+    node_key_property_name: str,
+    node_key_property_value: str,
+    graph: str,
+    uid: str,
+    outgoing: bool):
+
+    # Build the path pattern based on direction
+    path_pattern = (
+        f"(n)-[e]->(d)"
+        if outgoing
+        else f"(n)<-[e]-(d)"
+    )
+
     query = f"""
-    GRAPH {graph}
-    LET uid = "{uid}"
-    MATCH (n)
-    WHERE n.{node_key_property_name} = "{node_key_property_value}" and STRING(TO_JSON(n).identifier) = uid
-    RETURN n
+        GRAPH {graph}
+        LET uid = "{uid}"
+        MATCH (n)
+        WHERE n.{node_key_property_name} = "{node_key_property_value}" and STRING(TO_JSON(n).identifier) = uid
+        RETURN n
 
-    NEXT
+        NEXT
 
-    MATCH (n)-[e]->(d)
-    RETURN n, e, d
-
-    UNION ALL
-
-    MATCH (n)<-[f]-(k)
-    RETURN TO_JSON(n) as n, TO_JSON(f) AS f, TO_JSON(k) AS k, TO_JSON(e) as e, TO_JSON(d) as d
-    """
-
-    print(query)
+        MATCH p1 = {path_pattern}
+        RETURN TO_JSON(p1) as p1, TO_JSON(n) as n
+        """
 
     return execute_query(project, instance, database, query, mock=False)
+#
+# def execute_node_expansion(project: str, instance: str, database: str, node_key_property_name: str, node_key_property_value: str, graph: str, uid: str):
+#     query = f"""
+#     GRAPH {graph}
+#     LET uid = "{uid}"
+#     MATCH (n)
+#     WHERE n.{node_key_property_name} = "{node_key_property_value}" and STRING(TO_JSON(n).identifier) = uid
+#     RETURN n
+#
+#     NEXT
+#
+#     MATCH (n)-[e]->(d)
+#     RETURN n, e, d
+#
+#     UNION ALL
+#
+#     MATCH (n)<-[f]-(k)
+#     RETURN TO_JSON(n) as n, TO_JSON(f) AS f, TO_JSON(k) AS k, TO_JSON(e) as e, TO_JSON(d) as d
+#     """
+#
+#     print(query)
+#
+#     return execute_query(project, instance, database, query, mock=False)
 
 def execute_query(project: str, instance: str, database: str, query: str, mock = False):
     database = get_database_instance(project, instance, database, mock)
 
     try:
         query_result, fields, rows, schema_json = database.execute_query(query)
-        d, ignored_columns = columns_to_native_numpy(query_result, fields)
-
-        graph: DiGraph = prepare_data_for_graphing(
-            incoming=d,
-            schema_json=schema_json)
-
-        nodes = []
-        for (node_id, node) in graph.nodes(data=True):
-            nodes.append(node)
-
-        edges = []
-        for (from_id, to_id, edge) in graph.edges(data=True):
-            edges.append(edge)
-
+        nodes, edges = get_nodes_edges(query_result, fields, schema_json)
+        
         return {
             "response": {
-                "nodes": nodes,
-                "edges": edges,
+                "nodes": [node.to_json() for node in nodes],
+                "edges": [edge.to_json() for edge in edges],
                 "schema": schema_json,
                 "rows": rows,
                 "query_result": query_result
@@ -194,7 +214,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_post_node_expansion(self):
         data = self.parse_post_data()
-        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "node_key_property_value"]
+        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "node_key_property_value", "direction"]
         missing_fields = [field for field in required_fields if data.get(field) is None]
         
         if missing_fields:
@@ -208,10 +228,16 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         uid = data.get("uid")
         node_key_property_name = data.get("node_key_property_name")
         node_key_property_value = data.get("node_key_property_value")
+        direction = data.get("direction")
+
+        if direction not in ["INCOMING", "OUTGOING"]:
+            self.do_error_response(f"Invalid direction: must be INCOMING or OUTGOING, got \"{direction}\"")
+            return
 
         self.do_data_response(execute_node_expansion(
             project=project, instance=instance, database=database, graph=graph, uid=uid,
-            node_key_property_name=node_key_property_name, node_key_property_value=node_key_property_value
+            node_key_property_name=node_key_property_name, node_key_property_value=node_key_property_value,
+            outgoing=direction == "OUTGOING"
         ))
 
     def handle_post_node_expansion_single_edge(self):

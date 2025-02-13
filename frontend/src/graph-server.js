@@ -77,7 +77,8 @@ class GraphServer {
             uid: node.uid,
             graph: this.graph,
             node_key_property_name: node.key_property_names[0],
-            node_key_property_value: node.identifiers[0]
+            node_key_property_value: node.identifiers[0],
+            direction: 'OUTGOING'
         };
 
         this.isFetching = true;

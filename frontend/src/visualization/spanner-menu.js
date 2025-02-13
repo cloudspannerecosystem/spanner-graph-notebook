@@ -374,7 +374,7 @@ class SpannerMenu {
                 </div>
                 
                 <div class="element-count">
-                    ${Object.keys(this.store.config.nodes).length} nodes, ${this.store.config.edges.length} edges
+                    ${Object.keys(this.store.config.nodes).length} nodes, ${Object.keys(this.store.config.edges).length} edges
                 </div>
                 
                 <div class="toggle-container" id="show-labels-container">

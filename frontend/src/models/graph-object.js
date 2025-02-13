@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+/** @typedef {string} GraphObjectUID */
+
 class GraphObject {
     /**
      * The label of the Graph Object.
@@ -27,7 +29,7 @@ class GraphObject {
     properties = {};
 
     /**
-     * A boolean indicating if the Graph Object object has been instantiated.
+     * A boolean indicating if the Graph Object has been instantiated.
      * @type {boolean}
      */
     instantiated = false;
@@ -45,6 +47,12 @@ class GraphObject {
      */
     instantiationErrorReason;
 
+    /**
+     * Corresponds to "identifier" in Spanner
+     * @type {GraphObjectUID}
+     */
+    uid = '';
+
 
     /**
      * An object that renders on the graph.
@@ -52,15 +60,21 @@ class GraphObject {
      * @param {Object} params
      * @param {string[]} params.labels - The labels for the object.
      * @param {Object} params.properties - The optional property:value map for the object.
+     * @param {string} params.identifier - The unique identifier in Spanner
      */
-    constructor({ labels, properties, key_property_names }) {
+    constructor({ labels, properties, key_property_names, identifier }) {
         if (!Array.isArray(labels)) {
             throw new TypeError('labels must be an Array');
+        }
+
+        if (!this._validUid(identifier)) {
+            throw new TypeError('Invalid identifier');
         }
 
         this.labels = labels;
         this.properties = properties;
         this.key_property_names = key_property_names;
+        this.uid = identifier;
         this.instantiated = true;
     }
 
@@ -69,6 +83,15 @@ class GraphObject {
      */
     getDisplayName() {
         return this.labels[0];
+    }
+
+    /**
+     * @param {GraphObjectUID} uid
+     * @returns {boolean}
+     * @private
+     */
+    _validUid(uid) {
+        return (typeof uid === 'string') && uid.length > 0;
     }
 }
 

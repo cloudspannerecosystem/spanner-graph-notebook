@@ -111,6 +111,67 @@ def _column_to_native_numpy(column: List[Any],
     raise ValueError(
         f"Only JSON and array of JSON are allowed, got type: {datatype.name}")
 
+def get_nodes_edges(data: Dict[str, List[Any]], fields: List[StructType.Field], schema_json: dict = None) -> Tuple[List[Node], List[Edge]]:
+    schema_manager = SchemaManager(schema_json)
+    nodes: List[Node] = []
+    edges: List[Edge] = []
+    node_identifiers = set()  # Track unique node identifiers
+
+    # Process each column in the data
+    for field in fields:
+        column_name = field.name
+        column_data = data[column_name]
+        
+        # Only process JSON and Array of JSON types
+        if field.type_.code not in [TypeCode.JSON, TypeCode.ARRAY]:
+            continue
+
+        # Process each value in the column
+        for value in column_data:
+            items_to_process = []
+            
+            # Handle both single JSON and arrays of JSON
+            if field.type_.code == TypeCode.ARRAY:
+                if isinstance(value, list):
+                    items_to_process.extend(value)
+                elif hasattr(value, '_array_value'):
+                    items_to_process.extend(value._array_value)
+            else:
+                # Single JSON value
+                if isinstance(value, dict):
+                    items_to_process.append(value)
+                elif isinstance(value, str):
+                    try:
+                        items_to_process.append(json.loads(value))
+                    except json.JSONDecodeError:
+                        continue
+
+            # Process each item
+            for item in items_to_process:
+                if not isinstance(item, dict) or "kind" not in item:
+                    continue
+
+                if item["kind"] == "node" and Node.is_valid_node_json(item):
+                    node = Node.from_json(item)
+                    if node.identifier not in node_identifiers:
+                        node.key_property_names = schema_manager.get_key_property_names(node)
+                        nodes.append(node)
+                        node_identifiers.add(node.identifier)
+
+                elif item["kind"] == "edge" and Edge.is_valid_edge_json(item):
+                    edge = Edge.from_json(item)
+                    # Create implicit nodes for source and destination if they don't exist
+                    # if edge.source not in node_identifiers:
+                        # source_node = Node(edge.source, [], {})
+                        # nodes.append(source_node)
+                        # node_identifiers.add(edge.source)
+                    # if edge.destination not in node_identifiers:
+                        # dest_node = Node(edge.destination, [], {})
+                        # nodes.append(dest_node)
+                        # node_identifiers.add(edge.destination)
+                    edges.append(edge)
+
+    return nodes, edges
 
 def columns_to_native_numpy(
         data: Dict[str, List[Any]], fields: List[StructType.Field]
@@ -225,7 +286,7 @@ def prepare_data_for_graphing(
         node.key_property_names = schema_manager.get_key_property_names(node)
         if node.identifier not in node_mapping:
             node_mapping[node.identifier] = len(node_mapping) + 1
-        node.add_to_graph(g, node_mapping)
+        node.add_to_graph(g)
 
         if size_mode == SizeMode.PROPERTY:
             if size_property is None:
@@ -264,12 +325,12 @@ def prepare_data_for_graphing(
             src_id = len(node_mapping) + 1
             node_mapping[edge.source] = src_id
             src_node = Node(edge.source, [], {"id": src_id})
-            src_node.add_to_graph(g, node_mapping)
+            src_node.add_to_graph(g)
         if edge.destination not in node_mapping:
             dst_id = len(node_mapping) + 1
             node_mapping[edge.destination] = dst_id
             dst_node = Node(edge.destination, [], {"id": dst_id})
-            dst_node.add_to_graph(g, node_mapping)
+            dst_node.add_to_graph(g)
 
     for item in unique_json_list:
         if "kind" not in item:
@@ -283,7 +344,7 @@ def prepare_data_for_graphing(
         edge = Edge.from_json(item)
         numerical_id = (len(node_mapping) + 1) + edge_counter
         edge_counter += 1
-        edge.add_to_graph(g, node_mapping, numerical_id)
+        edge.add_to_graph(g)
 
     if size_mode == SizeMode.CARDINALITY:
         # Calculate the in-degree and out-degree using NetworkX functions
