@@ -18,6 +18,8 @@ import fs from "fs";
 
 // @ts-ignore
 const GraphServer = require('../../src/graph-server');
+// @ts-ignore
+const GraphNode = require('../../src/models/node');
 
 describe('GraphServer', () => {
     let graphServer: typeof GraphServer;
@@ -26,25 +28,25 @@ describe('GraphServer', () => {
 
     beforeEach(() => {
         mockFetch.mockClear();
-        graphServer = new GraphServer(
-            8000,
-            {'project': 'test-project',
-             'instance': 'test-instance',
-             'database': 'test-database',
-             'mock': false
-            }
-        );
+        graphServer = new GraphServer(8000, {
+            'project': 'test-project',
+            'instance': 'test-instance',
+            'database': 'test-database',
+            'graph': 'test-graph',
+            'mock': false
+        });
     });
 
     describe('constructor', () => {
         it('should initialize with the default variables', () => {
-           expect(graphServer.port).toBe(8000);
-           expect(graphServer.params).toStrictEqual(
-            {'project': 'test-project',
-             'instance': 'test-instance',
-             'database': 'test-database',
-             'mock': false
-           });
+            expect(graphServer.port).toBe(8000);
+            expect(graphServer.params).toStrictEqual({
+                'project': 'test-project',
+                'instance': 'test-instance',
+                'database': 'test-database',
+                'graph': 'test-graph',
+                'mock': false
+            });
         });
 
         it('should fail to initialize when no port is provided', () => {
@@ -71,6 +73,7 @@ describe('GraphServer', () => {
             expect(graphServer.params.project).toBe('test-project');
             expect(graphServer.params.instance).toBe('test-instance');
             expect(graphServer.params.database).toBe('test-database');
+            expect(graphServer.params.graph).toBe('test-graph');
             expect(graphServer.params.mock).toBe(false);
         });
     });
@@ -85,11 +88,55 @@ describe('GraphServer', () => {
             const originalLocation = window.location;
             // @ts-ignore
             delete window.location;
-            window.location = { ...originalLocation, hostname: 'vertex-ai-workbench' };
+            window.location = {...originalLocation, hostname: 'vertex-ai-workbench'};
             const route = graphServer.buildRoute('/test-endpoint');
             expect(route).toBe('/proxy/8000/test-endpoint');
 
             window.location = originalLocation;
+        });
+    });
+
+    describe('node expansion', () => {
+        const mockDataPath = path.join(__dirname, '../mock-data.json');
+        const mockData = JSON.parse(fs.readFileSync(mockDataPath, 'utf8'));
+
+        beforeEach(() => {
+            mockFetch.mockImplementation(() =>
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData)
+                })
+            );
+        });
+
+        it('should make POST request with the correct parameters', async () => {
+            const graphNode = new GraphNode({
+                identifier: 'node1',
+                labels: ['TestLabel1'],
+                key_property_names: ['name'],
+                properties: {
+                    name: 'my-node-name'
+                }
+            });
+
+            await graphServer.nodeExpansion(graphNode);
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                'http://localhost:8000/post_node_expansion',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        project: 'test-project',
+                        instance: 'test-instance',
+                        database: 'test-database',
+                        graph: 'test-graph',
+                        uid: 'node1',
+                        node_key_property_name: 'name',
+                        node_key_property_value: 'my-node-name',
+                        direction: 'OUTGOING'
+                    })
+                }
+            );
         });
     });
 

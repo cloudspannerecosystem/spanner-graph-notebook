@@ -360,10 +360,9 @@ class GraphConfig {
             }
         }
 
-        const nodeArray = Object.keys(newNodes).map(uid => newNodes[uid]);
-        for (const edge of newEdges) {
-            if (this.nodes[edge.from] && this.nodes[edge.to]) {
-                this.edges.push(edge);
+        for (const uid of Object.keys(newEdges)) {
+            if (!this.edges[uid]) {
+                this.edges[uid] = newEdges[uid];
             }
         }
 

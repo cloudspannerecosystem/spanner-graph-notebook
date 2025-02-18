@@ -111,15 +111,23 @@ class NetworkVisualizationMagics(Magics):
 
     def visualize(self):
         """Helper function to create and display the visualization"""
+        # Extract the graph name from the query (if present)
+        graph = ""
+        if 'GRAPH ' in self.cell.upper():
+            match = re.search(r'GRAPH\s+(\w+)', self.cell, re.IGNORECASE)
+            if match:
+                graph = match.group(1)
+
         # Generate the HTML content
         html_content = generate_visualization_html(
             query=self.cell,
             port=GraphServer.port,
             params=json.dumps({
-                 "project": self.args.project,
-                 "instance": self.args.instance,
-                 "database": self.args.database,
-                 "mock": self.args.mock,
+                "project": self.args.project,
+                "instance": self.args.instance,
+                "database": self.args.database,
+                "mock": self.args.mock,
+                "graph": graph
             }))
         display(HTML(html_content))
 
