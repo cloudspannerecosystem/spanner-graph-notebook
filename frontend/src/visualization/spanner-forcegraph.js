@@ -1192,7 +1192,7 @@ class GraphVisualization {
         }
 
         const edgeButtons = this.store.getEdgeTypesOfNode(node).map(({label, direction}) => {
-           const directionSvg = direction === Edge.Direction.INCOMING ? this.incomingEdgeSvg : this.outgoingEdgeSvg;
+           const directionSvg = direction === Edge.Direction.INCOMING.description ? this.incomingEdgeSvg : this.outgoingEdgeSvg;
 
            return `<div class="context-menu-item node-expand-edge" data-direction="${direction}">${directionSvg} ${label}</div>`;
         });
@@ -1203,7 +1203,8 @@ class GraphVisualization {
                     <span>Expand</span>
                     <span class="submenu-arrow">›</span>
                     <div class="submenu">
-                        <div class="context-menu-item" id="context-menu-all-edges-button"">All edges</div>
+                        <div class="context-menu-item" id="context-menu-all-incoming-edges-button"">All incoming edges</div>
+                        <div class="context-menu-item" id="context-menu-all-outgoing-edges-button"">All outgoing edges</div>
                         ${edgeButtons.join('')}
                     </div>
                 </div>
@@ -1235,8 +1236,11 @@ class GraphVisualization {
         document.addEventListener('click', closeMenu);
 
         // Add event listeners for broad node expansion
-        document.body.querySelector('#context-menu-all-edges-button').addEventListener('click', () => {
-            this.store.requestNodeExpansion(node);
+        document.body.querySelector('#context-menu-all-outgoing-edges-button').addEventListener('click', () => {
+            this.store.requestNodeExpansion(node, Edge.Direction.OUTGOING);
+        });
+        document.body.querySelector('#context-menu-all-incoming-edges-button').addEventListener('click', () => {
+            this.store.requestNodeExpansion(node, Edge.Direction.INCOMING);
         });
 
         // Add event listeners for node expansion of individual edge types
@@ -1245,7 +1249,7 @@ class GraphVisualization {
             const direction = element.dataset.direction;
             
             element.addEventListener('click', () => {
-                this.store.requestNodeExpansionEdge(node, edgeLabel, direction);
+                this.store.requestNodeExpansion(node, direction, edgeLabel);
             });
         }
     }

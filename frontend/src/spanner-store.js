@@ -68,6 +68,14 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
  * @returns {void}
  */
 
+/**
+ * @callback NodeExpansionRequestCallback
+ * @param {Node} node
+ * @param {Edge.Direction} direction
+ * @param {String} edgeLabel
+ * @returns {void}
+ */
+
 class GraphStore {
     /**
      * The configuration that the graph store is based on.
@@ -97,7 +105,6 @@ class GraphStore {
         LAYOUT_MODE_CHANGE: Symbol('layoutModeChange'),
         SHOW_LABELS: Symbol('showLabels'),
         NODE_EXPANSION_REQUEST: Symbol('nodeExpansionRequest'),
-        NODE_EXPANSION_EDGE_REQUEST: Symbol('nodeExpansionEdgeRequest'),
         GRAPH_DATA_UPDATE: Symbol('graphDataUpdate')
     });
 
@@ -139,14 +146,6 @@ class GraphStore {
          * @type {GraphStore.EventTypes.NODE_EXPANSION_REQUEST, NodeExpansionRequestCallback[]>}
          */
         [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]: [],
-        /**
-         * @type {GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST, NodeExpansionEdgeRequestCallback[]>}
-         */
-        [GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST]: [],
-        /**
-         * @type {GraphStore.EventTypes.GRAPH_DATA_UPDATE, GraphDataUpdateCallback[]>}
-         */
-        [GraphStore.EventTypes.GRAPH_DATA_UPDATE]: []
     };
 
     /**
@@ -502,15 +501,12 @@ class GraphStore {
 
     /**
      * @param {Node} node
+     * @param {Edge.Direction} direction
+     * @param {string|undefined} edgeLabel
      */
-    requestNodeExpansion(node) {
+    requestNodeExpansion(node, direction, edgeLabel) {
         this.eventListeners[GraphStore.EventTypes.NODE_EXPANSION_REQUEST]
-            .forEach(callback => callback(node, this.config));
-    }
-
-    requestNodeExpansionEdge(node, edgeLabel, direction) {
-        this.eventListeners[GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST]
-            .forEach(callback => callback(node, edgeLabel, direction, this.config));
+            .forEach(callback => callback(node, direction, edgeLabel, this.config));
     }
 }
 

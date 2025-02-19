@@ -1,5 +1,5 @@
 /**
- * Copyright 2024 Google LLC
+ * Copyright 2025 Google LLC
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -154,22 +154,14 @@ class SpannerApp {
                     });
 
                 this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_REQUEST,
-                    (node, config) => {
-                        this.server.nodeExpansion(node)
+                    (node, direction, edgeLabel, config) => {
+                        this.server.nodeExpansion(node, direction, edgeLabel)
                             .then(response => {
                                 if (!response) {
                                     return;
                                 }
                                 
                                 this.store.appendGraphData(response.response.nodes, response.response.edges);
-                            });
-                    });
-
-                this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_EDGE_REQUEST,
-                    (node, edgeLabel, direction, config) => {
-                        this.server.nodeExpansionSingleEdge(node, edgeLabel, direction)
-                            .then(response => {
-                                // Handle response and update graph
                             });
                     });
 

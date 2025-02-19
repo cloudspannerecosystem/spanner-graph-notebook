@@ -59,8 +59,10 @@ class GraphServer {
 
     /**
      * @param {Node} node
+     * @param {Edge.Direction} direction
+     * @param {string|undefined} edgeLabel
      */
-    nodeExpansion(node) {
+    nodeExpansion(node, direction, edgeLabel) {
         if (!node.identifiers.length || !node.key_property_names.length) {
             return Promise.reject(new Error('Node does not have an identifier'));
         }
@@ -76,8 +78,12 @@ class GraphServer {
             uid: node.uid,
             node_key_property_name: node.key_property_names[0],
             node_key_property_value: node.identifiers[0],
-            direction: 'OUTGOING'
+            direction
         };
+
+        if (typeof edgeLabel == 'string' && edgeLabel.length) {
+            request.edge_label = edgeLabel;
+        }
 
         this.isFetching = true;
 
@@ -101,14 +107,6 @@ class GraphServer {
                 console.error('There has been a problem with your fetch operation:', error);
             })
             .finally(() => this.isFetching = false);
-    }
-
-    /**
-     * @param {Node} node
-     * @param {Edge} edge
-     */
-    nodeExpansionSingleEdge(node, edge) {
-
     }
 
     query(queryString) {

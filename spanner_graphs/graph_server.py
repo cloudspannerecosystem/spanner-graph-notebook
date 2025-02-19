@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,19 @@ import http.server
 import socketserver
 import json
 import threading
+from enum import Enum
+
 import requests
 import portpicker
-from networkx.classes import DiGraph
 import atexit
 
-from spanner_graphs.conversion import prepare_data_for_graphing, columns_to_native_numpy, get_nodes_edges
+from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.database import get_database_instance
 
+
+class EdgeDirection(Enum):
+    INCOMING = "INCOMING"
+    OUTGOING = "OUTGOING"
 
 def execute_node_expansion(
     project: str,
@@ -33,13 +38,16 @@ def execute_node_expansion(
     node_key_property_value: str,
     graph: str,
     uid: str,
-    outgoing: bool):
+    direction: EdgeDirection,
+    edge_label: str = None):
+
+    edge = "e" if not edge_label else f"e:{edge_label}"
 
     # Build the path pattern based on direction
     path_pattern = (
-        f"(n)-[e]->(d)"
-        if outgoing
-        else f"(n)<-[e]-(d)"
+        f"(n)-[{edge}]->(d)"
+        if direction == EdgeDirection.OUTGOING
+        else f"(n)<-[{edge}]-(d)"
     )
 
     query = f"""
@@ -52,33 +60,10 @@ def execute_node_expansion(
         NEXT
 
         MATCH p1 = {path_pattern}
-        RETURN TO_JSON(p1) as p1, TO_JSON(n) as n
+        RETURN TO_JSON(p1) as p1
         """
 
     return execute_query(project, instance, database, query, mock=False)
-#
-# def execute_node_expansion(project: str, instance: str, database: str, node_key_property_name: str, node_key_property_value: str, graph: str, uid: str):
-#     query = f"""
-#     GRAPH {graph}
-#     LET uid = "{uid}"
-#     MATCH (n)
-#     WHERE n.{node_key_property_name} = "{node_key_property_value}" and STRING(TO_JSON(n).identifier) = uid
-#     RETURN n
-#
-#     NEXT
-#
-#     MATCH (n)-[e]->(d)
-#     RETURN n, e, d
-#
-#     UNION ALL
-#
-#     MATCH (n)<-[f]-(k)
-#     RETURN TO_JSON(n) as n, TO_JSON(f) AS f, TO_JSON(k) AS k, TO_JSON(e) as e, TO_JSON(d) as d
-#     """
-#
-#     print(query)
-#
-#     return execute_query(project, instance, database, query, mock=False)
 
 def execute_query(project: str, instance: str, database: str, query: str, mock = False):
     database = get_database_instance(project, instance, database, mock)
@@ -228,62 +213,25 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         uid = data.get("uid")
         node_key_property_name = data.get("node_key_property_name")
         node_key_property_value = data.get("node_key_property_value")
-        direction = data.get("direction")
-
-        if direction not in ["INCOMING", "OUTGOING"]:
-            self.do_error_response(f"Invalid direction: must be INCOMING or OUTGOING, got \"{direction}\"")
+        edge_label = data.get("edge_label")
+        
+        try:
+            direction = EdgeDirection(data.get("direction"))
+        except ValueError:
+            self.do_error_response(f"Invalid direction: must be INCOMING or OUTGOING, got \"{data.get('direction')}\"")
             return
 
         self.do_data_response(execute_node_expansion(
-            project=project, instance=instance, database=database, graph=graph, uid=uid,
-            node_key_property_name=node_key_property_name, node_key_property_value=node_key_property_value,
-            outgoing=direction == "OUTGOING"
+            project=project, 
+            instance=instance, 
+            database=database, 
+            graph=graph, 
+            uid=uid,
+            node_key_property_name=node_key_property_name, 
+            node_key_property_value=node_key_property_value,
+            direction=direction,
+            edge_label=edge_label
         ))
-
-    def handle_post_node_expansion_single_edge(self):
-        data = self.parse_post_data()
-        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "edge_label", "direction"]
-        missing_fields = [field for field in required_fields if data.get(field) is None]
-        
-        if missing_fields:
-            self.do_error_response(f"Missing required fields: {', '.join(missing_fields)}")
-            return
-
-        project = data.get("project")
-        instance = data.get("instance")
-        database = data.get("database")
-        graph = data.get("graph")
-        uid = data.get("uid")
-        node_key_property_name = data.get("node_key_property_name")
-        edge_label = data.get("edge_label")
-        direction = data.get("direction")
-
-        if direction not in ["INCOMING", "OUTGOING"]:
-            self.do_error_response(f"Invalid direction: must be INCOMING or OUTGOING, got \"{direction}\"")
-            return
-
-        # Build the path pattern based on direction
-        path_pattern = (
-            f"(n)-[e:{edge_label}]->(d)"
-            if direction == "OUTGOING"
-            else f"(n)<-[e:{edge_label}]-(d)"
-        )
-
-        query = f"""
-        GRAPH {graph}
-        LET uid = "{uid}"
-        MATCH (n)
-        WHERE n.id = "{node_key_property_name}" and STRING(TO_JSON(n).identifier) = uid
-        RETURN n
-
-        NEXT
-
-        MATCH {path_pattern}
-        RETURN TO_JSON(n) as n, TO_JSON(e) AS e, TO_JSON(d) AS d
-        """
-
-        response = execute_query(project, instance, database, query, mock=False)
-        self.do_data_response(response)
 
     def do_GET(self):
         if self.path == GraphServer.endpoints["get_ping"]:
@@ -298,8 +246,5 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_post_query()
         elif self.path == GraphServer.endpoints["post_node_expansion"]:
             self.handle_post_node_expansion()
-        elif self.path == GraphServer.endpoints["post_node_expansion_single_edge"]:
-            self.handle_post_node_expansion_single_edge()
-
 
 atexit.register(GraphServer.stop_server)
