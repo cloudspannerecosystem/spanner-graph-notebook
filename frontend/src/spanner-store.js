@@ -146,6 +146,10 @@ class GraphStore {
          * @type {GraphStore.EventTypes.NODE_EXPANSION_REQUEST, NodeExpansionRequestCallback[]>}
          */
         [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]: [],
+        /**
+         * @type {GraphStore.EventTypes.GRAPH_DATA_UPDATE, GraphDataUpdateCallback[]>}
+         */
+        [GraphStore.EventTypes.GRAPH_DATA_UPDATE]: []
     };
 
     /**

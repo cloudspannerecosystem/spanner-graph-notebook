@@ -100,6 +100,11 @@ class GraphVisualization {
     requestedRecenter = false;
 
     /**
+     * @type {Node[]}
+     */
+    nodesToUnlockPosition = [];
+
+    /**
      * @typedef {Object} ToolsConfig
      * @property {number} zoomInSpeed - Speed of zooming in.
      * @property {number} zoomInIncrement - Increment value for zooming in.
@@ -279,6 +284,7 @@ class GraphVisualization {
                 links: this._computeCurvature(edges)
             };
             this.graph.graphData(graphData);
+            this.refreshCache();
         });
 
         document.addEventListener('keydown', (event) => {
@@ -511,6 +517,52 @@ class GraphVisualization {
         this.render();
     }
 
+    refreshCache() {
+        const {nodes, links} = this.graph.graphData();
+
+        if (this.selectedNode) {
+            this.selectedNodeEdges = links.filter(
+                link => link.sourceUid === this.selectedNode.uid || link.destinationUid === this.selectedNode.uid);
+
+            this.selectedNodeNeighbors = nodes.filter(n => {
+                const selectedEdges = this.selectedNodeEdges.filter(link => link.sourceUid === n.uid || link.destinationUid === n.uid);
+                const containsEdges = selectedEdges.length > 0;
+                if (containsEdges) {
+                    this.selectedNodeEdges.push(...selectedEdges);
+                }
+
+                return containsEdges;
+            });
+        }
+
+        if (this.focusedNode) {
+            const focusedNodeEdges = links.filter(link => link.sourceUid === this.focusedNode.uid || link.destinationUid === this.focusedNode.uid);
+            this.focusedNodeEdges.push(...focusedNodeEdges);
+            this.focusedNodeNeighbors = nodes.filter(n => {
+                if (n.uid === node.uid) {
+                    return false;
+                }
+
+                const focusedEdges = this.focusedNodeEdges.filter(link => link.sourceUid === n.uid || link.destinationUid === n.uid);
+                return focusedEdges.length > 0;
+            });
+        }
+
+        if (this.selectedEdge) {
+            this.selectedEdgeNeighbors = [
+                this.selectedEdge.source,
+                this.selectedEdge.target
+            ];
+        }
+
+        if (this.focusedEdge) {
+            this.focusedEdgeNeighbors = [
+                this.focusedEdge.source,
+                this.focusedEdge.target
+            ];
+        }
+    }
+
     onSelectedEdgeChanged(edge) {
         this.selectedEdge = edge;
         this.selectedEdgeNeighbors = [];
@@ -527,8 +579,6 @@ class GraphVisualization {
 
     onSelectedNodeChanged(node) {
         this.selectedNode = node;
-
-        // We could center the graph on the node
 
         // This is duplicated between onSelectedNodeChange and onFocusedNodeChange.
         // This could be extracted to a separate function.
@@ -549,7 +599,6 @@ class GraphVisualization {
 
         this.graph.centerAt(node.x, node.y, 1000);
         this.graph.zoom(4, 1000);
-
     }
 
     onFocusedEdgeChanged(edge) {
@@ -1194,7 +1243,7 @@ class GraphVisualization {
         const edgeButtons = this.store.getEdgeTypesOfNode(node).map(({label, direction}) => {
            const directionSvg = direction === Edge.Direction.INCOMING.description ? this.incomingEdgeSvg : this.outgoingEdgeSvg;
 
-           return `<div class="context-menu-item node-expand-edge" data-direction="${direction}">${directionSvg} ${label}</div>`;
+           return `<div class="context-menu-item node-expand-edge" data-label="${label}" data-direction="${direction}">${directionSvg} ${label}</div>`;
         });
 
         const html = `
@@ -1203,8 +1252,8 @@ class GraphVisualization {
                     <span>Expand</span>
                     <span class="submenu-arrow">›</span>
                     <div class="submenu">
-                        <div class="context-menu-item" id="context-menu-all-incoming-edges-button"">All incoming edges</div>
-                        <div class="context-menu-item" id="context-menu-all-outgoing-edges-button"">All outgoing edges</div>
+                        <div class="context-menu-item node-expand-edge" data-direction="${Edge.Direction.INCOMING.description}">All incoming edges</div>
+                        <div class="context-menu-item node-expand-edge" data-direction="${Edge.Direction.OUTGOING.description}">All outgoing edges</div>
                         ${edgeButtons.join('')}
                     </div>
                 </div>
@@ -1235,21 +1284,22 @@ class GraphVisualization {
 
         document.addEventListener('click', closeMenu);
 
-        // Add event listeners for broad node expansion
-        document.body.querySelector('#context-menu-all-outgoing-edges-button').addEventListener('click', () => {
-            this.store.requestNodeExpansion(node, Edge.Direction.OUTGOING);
-        });
-        document.body.querySelector('#context-menu-all-incoming-edges-button').addEventListener('click', () => {
-            this.store.requestNodeExpansion(node, Edge.Direction.INCOMING);
-        });
-
         // Add event listeners for node expansion of individual edge types
         for (const element of document.body.querySelectorAll('.node-expand-edge')) {
-            const edgeLabel = element.textContent.split(' ')[1];
+            const edgeLabel = element.dataset.label;
             const direction = element.dataset.direction;
-            
+
             element.addEventListener('click', () => {
+                // Fix node position during expansion
+                node.fx = node.x;
+                node.fy = node.y;
+                this.nodesToUnlockPosition.push(node);
+
+                this.store.setFocusedObject();
+                this.store.setSelectedObject(node);
                 this.store.requestNodeExpansion(node, direction, edgeLabel);
+
+                menu.remove();
             });
         }
     }
@@ -1326,6 +1376,12 @@ class GraphVisualization {
                 this.graph.zoomToFit(1000, this._getRecenterPadding());
                 this.requestedRecenter = false;
             }
+
+            for (const node of this.nodesToUnlockPosition) {
+                node.fx = undefined;
+                node.fy = undefined;
+            }
+            this.nodesToUnlockPosition = [];
         });
 
         this.graph.graphData(graphData);

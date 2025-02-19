@@ -1,4 +1,4 @@
-/* # Copyright 2023 Google LLC
+/* # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -252,6 +252,10 @@ class SidebarConstructor {
         this.store = store;
         this.elements.mount = mount;
 
+        this.refresh();
+    }
+
+    refresh() {
         this.scaffold();
         this.title();
 
@@ -732,7 +736,12 @@ class SidebarConstructor {
         if (selectedObject instanceof Node) {
             const edges = this.store.getEdgesOfNode(selectedObject);
             edges.forEach((edge) => {
-                const neighbor = edge.source === selectedObject ? edge.target : edge.source;
+                const neighbor = edge.source === selectedObject ?
+                    this.store.config.nodes[edge.destinationUid] : this.store.config.nodes[edge.sourceUid];
+                if (!neighbor) {
+                    return;
+                }
+
                 const neighborRowDiv = document.createElement('div');
                 neighborRowDiv.className = 'neighbor-row';
 
@@ -874,6 +883,11 @@ class Sidebar {
      */
     mount;
 
+    /**
+     * @type {SidebarConstructor}
+     */
+    domConstructor;
+
     constructor(inStore, inMount) {
         this.store = inStore;
         this.mount = inMount;
@@ -896,7 +910,7 @@ class Sidebar {
             sidebar.style.display = 'initial';
         }
 
-        new SidebarConstructor(this.store, sidebar);
+        this.domConstructor = new SidebarConstructor(this.store, sidebar);
     }
 
     /**
@@ -907,6 +921,13 @@ class Sidebar {
         if (!(store instanceof GraphStore)) {
             throw Error('Store must be an instance of GraphStore');
         }
+
+        store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE,
+            (nodes, edges) => {
+                if (this.domConstructor) {
+                    this.domConstructor.refresh();
+                }
+            });
 
         store.addEventListener(GraphStore.EventTypes.VIEW_MODE_CHANGE,
             (viewMode, config) => {
