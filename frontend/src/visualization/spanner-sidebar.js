@@ -923,7 +923,7 @@ class Sidebar {
         }
 
         store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE,
-            (nodes, edges) => {
+            (currentGraph, updates, config) => {
                 if (this.domConstructor) {
                     this.domConstructor.refresh();
                 }

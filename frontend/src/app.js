@@ -156,23 +156,32 @@ class SpannerApp {
                 this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_REQUEST,
                     (node, direction, edgeLabel, config) => {
                         // Show loading state through GraphVisualization
-                        this.graph._showLoadingStateForNode(node);
+                        this.graph.showLoadingStateForNode(node);
 
                         this.server.nodeExpansion(node, direction, edgeLabel)
-                            .then(response => {
-                                if (!response) {
+                            .then(data => {
+                                if (!data || !data.response) {
                                     return;
                                 }
-                                
-                                this.store.appendGraphData(response.response.nodes, response.response.edges);
+
+                                const newData = this.store.appendGraphData(data.response.nodes, data.response.edges)
+                                if (newData) {
+                                    // Show success message before appending data
+                                    this.graph.showSuccessStateForNode(node, {
+                                        nodesAdded: newData.newNodes.length,
+                                        edgesAdded: newData.newEdges.length
+                                    });
+                                } else {
+                                    this.graph.showSuccessStateForNode(node, {nodesAdded: 0, edgesAdded: 0});
+                                }
                             })
                             .catch(error => {
                                 // Show error state through GraphVisualization
-                                this.graph._showErrorStateForNode(node, error);
+                                this.graph.showErrorStateForNode(node, error);
                             })
                             .finally(() => {
                                 // Hide loading state through GraphVisualization
-                                this.graph._hideLoadingStateForNode(node);
+                                this.graph.hideLoadingStateForNode(node);
                             });
                     });
 
@@ -264,6 +273,23 @@ class SpannerApp {
                     z-index: 10;
                     pointer-events: none;
                     animation: fadeInOut 5s ease-in-out;
+                }
+
+                .node-success-toast {
+                    position: absolute;
+                    background: white;
+                    color: #3C4043;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 10;
+                    pointer-events: none !important;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    border: 1px solid #34A853;
+                    opacity: 1;
+                    transition: opacity 0.3s ease-in-out;
+                    user-select: none;
+                    -webkit-user-select: none;
                 }
 
                 @keyframes spin {

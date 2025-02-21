@@ -76,6 +76,14 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
  * @returns {void}
  */
 
+/**
+ * @callback GraphDataUpdateCallback
+ * @param {{nodes: Array<Node>, edges: Array<Edge>}} currentGraph - The current state of the graph
+ * @param {{newNodes: Array<NodeData>, newEdges: Array<EdgeData>}} updates - The newly added data
+ * @param {GraphConfig} config - The graph configuration
+ * @returns {void}
+ */
+
 class GraphStore {
     /**
      * The configuration that the graph store is based on.
@@ -110,45 +118,26 @@ class GraphStore {
 
     /**
      * Events that are broadcasted to GraphVisualization implementations.
-     * @type Map<GraphStore.EventTypes, GraphConfigCallback[]>.
+     * @type {Object.<GraphStore.EventTypes, Array<Function>>}
+     * @property {Array<GraphConfigCallback>} [GraphStore.EventTypes.CONFIG_CHANGE]
+     * @property {Array<FocusedGraphObjectCallback>} [GraphStore.EventTypes.FOCUS_OBJECT]
+     * @property {Array<SelectedGraphObjectCallback>} [GraphStore.EventTypes.SELECT_OBJECT]
+     * @property {Array<SelectedGraphColorSchemeCallback>} [GraphStore.EventTypes.COLOR_SCHEME]
+     * @property {Array<ViewModeChangedCallback>} [GraphStore.EventTypes.VIEW_MODE_CHANGE]
+     * @property {Array<LayoutModeChangedCallback>} [GraphStore.EventTypes.LAYOUT_MODE_CHANGE]
+     * @property {Array<ShowLabelsCallback>} [GraphStore.EventTypes.SHOW_LABELS]
+     * @property {Array<NodeExpansionRequestCallback>} [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]
+     * @property {Array<GraphDataUpdateCallback>} [GraphStore.EventTypes.GRAPH_DATA_UPDATE]
      */
     eventListeners = {
-        /**
-         * Stores event listeners for config changes.
-         * @type {GraphStore.EventTypes.CONFIG_CHANGE, GraphConfigCallback[]>}
-         */
         [GraphStore.EventTypes.CONFIG_CHANGE]: [],
-        /**
-         * @type {GraphStore.EventTypes.FOCUS_OBJECT, FocusedGraphObjectCallback[]>}
-         */
         [GraphStore.EventTypes.FOCUS_OBJECT]: [],
-        /**
-         * @type {GraphStore.EventTypes.SELECT_OBJECT, SelectedGraphObjectCallback[]>}
-         */
         [GraphStore.EventTypes.SELECT_OBJECT]: [],
-        /**
-         * @type {GraphStore.EventTypes.COLOR_SCHEME, SelectedGraphColorSchemeCallback[]>}
-         */
         [GraphStore.EventTypes.COLOR_SCHEME]: [],
-        /**
-         * @type {GraphStore.EventTypes.VIEW_MODE_CHANGE, ViewModeChangedCallback[]>}
-         */
         [GraphStore.EventTypes.VIEW_MODE_CHANGE]: [],
-        /**
-         * @type {GraphStore.EventTypes.LAYOUT_MODE_CHANGE, LayoutModeChangedCallback[]>}
-         */
         [GraphStore.EventTypes.LAYOUT_MODE_CHANGE]: [],
-        /**
-         * @type {GraphStore.EventTypes.SHOW_LABELS, ShowLabelsCallback[]>}
-         */
         [GraphStore.EventTypes.SHOW_LABELS]: [],
-        /**
-         * @type {GraphStore.EventTypes.NODE_EXPANSION_REQUEST, NodeExpansionRequestCallback[]>}
-         */
         [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]: [],
-        /**
-         * @type {GraphStore.EventTypes.GRAPH_DATA_UPDATE, GraphDataUpdateCallback[]>}
-         */
         [GraphStore.EventTypes.GRAPH_DATA_UPDATE]: []
     };
 
@@ -461,7 +450,13 @@ class GraphStore {
 
         this.config.appendGraphData(newNodes, newEdges);
         this.eventListeners[GraphStore.EventTypes.GRAPH_DATA_UPDATE]
-            .forEach(callback => callback(this.getNodes(), this.getEdges(), this.config));
+            .forEach(callback => callback(
+                {nodes: this.getNodes(), edges: this.getEdges()},
+                {newNodes, newEdges},
+                this.config)
+            );
+
+        return {newNodes, newEdges};
     }
 
     /**

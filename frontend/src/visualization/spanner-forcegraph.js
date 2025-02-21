@@ -181,14 +181,25 @@ class GraphVisualization {
     loadingNode = null;
 
     /**
+     * The success toast element
+     * @type {HTMLElement|null}
+     */
+    successToast = null;
+
+    /**
+     * The node that the success toast is being shown for
+     * @type {Node|null}
+     */
+    successNode = null;
+
+    /**
      * Shows a loading indicator for a node that is being expanded
      * @param {Node} node - The node to show loading state for
-     * @private
      */
-    _showLoadingStateForNode(node) {
+    showLoadingStateForNode(node) {
         // If we already have a loading node, hide it first
         if (this.loadingNode) {
-            this._hideLoadingStateForNode(this.loadingNode);
+            this.hideLoadingStateForNode(this.loadingNode);
         }
 
         this.loadingNode = node;
@@ -227,9 +238,8 @@ class GraphVisualization {
     /**
      * Hides the loading indicator for a node
      * @param {Node} node - The node to hide loading state for
-     * @private
      */
-    _hideLoadingStateForNode(node) {
+    hideLoadingStateForNode(node) {
         if (this.loadingSpinner) {
             this.loadingSpinner.remove();
             this.loadingSpinner = null;
@@ -245,9 +255,8 @@ class GraphVisualization {
      * Shows an error state for a node when expansion fails
      * @param {Node} node - The node that failed to expand
      * @param {Error} error - The error that occurred
-     * @private
      */
-    _showErrorStateForNode(node, error) {
+    showErrorStateForNode(node, error) {
         // Create error tooltip
         const errorTooltip = document.createElement('div');
         errorTooltip.className = 'node-error-tooltip';
@@ -261,6 +270,76 @@ class GraphVisualization {
 
         // Auto-remove after delay
         setTimeout(() => errorTooltip.remove(), 5000);
+    }
+
+    /**
+     * Shows a success message after node expansion
+     * @param {Node} node - The node that was expanded
+     * @param {Object} expansionStats - Statistics about what was added
+     * @param {number} expansionStats.nodesAdded - Number of new nodes added
+     * @param {number} expansionStats.edgesAdded - Number of new edges added
+     */
+    showSuccessStateForNode(node, expansionStats) {
+        if (!node || typeof expansionStats !== 'object') return;
+        if (!Number.isInteger(expansionStats.nodesAdded) || !Number.isInteger(expansionStats.edgesAdded)) {
+            return;
+        }
+        // If we already have a success toast, remove it first
+        if (this.successToast) {
+            this.successToast.remove();
+            this.successToast = null;
+            this.successNode = null;
+        }
+        
+        // Create success toast
+        this.successToast = document.createElement('div');
+        this.successToast.className = 'node-success-toast';
+        this.successNode = node;
+        
+        // Create message based on what was added
+        let message = '';
+        if (expansionStats.nodesAdded > 0 && expansionStats.edgesAdded > 0) {
+            message = `Added ${expansionStats.nodesAdded} node${expansionStats.nodesAdded !== 1 ? 's' : ''} and ${expansionStats.edgesAdded} edge${expansionStats.edgesAdded !== 1 ? 's' : ''}`;
+        } else if (expansionStats.nodesAdded > 0) {
+            message = `Added ${expansionStats.nodesAdded} node${expansionStats.nodesAdded !== 1 ? 's' : ''}`;
+        } else if (expansionStats.edgesAdded > 0) {
+            message = `Added ${expansionStats.edgesAdded} edge${expansionStats.edgesAdded !== 1 ? 's' : ''}`;
+        } else {
+            message = 'No new data found';
+        }
+        
+        this.successToast.textContent = message;
+        this.mount.appendChild(this.successToast);
+        
+        // Position toast near node
+        this._updateSuccessToastPosition(node);
+
+        // Auto-remove after delay
+        setTimeout(() => {
+            if (this.successToast) {
+                this.successToast.style.opacity = '0';
+                setTimeout(() => {
+                    if (this.successToast) {
+                        this.successToast.remove();
+                        this.successToast = null;
+                        this.successNode = null;
+                    }
+                }, 300); // Match transition duration
+            }
+        }, 2000);
+    }
+
+    /**
+     * Updates the position of the success toast to match the node
+     * @param {Node} node - The node to position the toast near
+     * @private
+     */
+    _updateSuccessToastPosition(node) {
+        if (!this.successToast || !node) return;
+
+        const nodeScreenPos = this.graph.graph2ScreenCoords(node.x, node.y);
+        this.successToast.style.left = `${nodeScreenPos.x}px`;
+        this.successToast.style.top = `${nodeScreenPos.y}px`;
     }
 
     /**
@@ -373,10 +452,10 @@ class GraphVisualization {
             (layoutMode, lastLayoutMode) => this.onLayoutModeChange(layoutMode, lastLayoutMode));
 
         // Subscribe to graph data updates
-        this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (nodes, edges, config) => {
+        this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (currentGraph, updates, config) => {
             const graphData = {
-                nodes: nodes,
-                links: this._computeCurvature(edges)
+                nodes: currentGraph.nodes,
+                links: this._computeCurvature(currentGraph.edges)
             };
             this.graph.graphData(graphData);
             this.refreshCache();
@@ -1396,7 +1475,7 @@ class GraphVisualization {
 
                 menu.remove();
 
-                this._showLoadingStateForNode(node);
+                this.showLoadingStateForNode(node);
             });
         }
     }
@@ -1458,7 +1537,12 @@ class GraphVisualization {
             .onBackgroundClick(event => {
                 this.store.setSelectedObject(null);
             })
-            .onZoom(() => this._updateLoadingSpinnerPosition())
+            .onZoom(() => {
+                this._updateLoadingSpinnerPosition();
+                if (this.successToast && this.successNode) {
+                    this._updateSuccessToastPosition(this.successNode);
+                }
+            })
             .onEngineStop(() => {
                 if (this.requestedRecenter) {
                     this.graph.zoomToFit(1000, this._getRecenterPadding());
@@ -1472,6 +1556,9 @@ class GraphVisualization {
                 this.nodesToUnlockPosition = [];
 
                 this._updateLoadingSpinnerPosition();
+                if (this.successToast && this.successNode) {
+                    this._updateSuccessToastPosition(this.successNode);
+                }
             })
             .calculateLineLengthByCluster()
             .drawNodes()

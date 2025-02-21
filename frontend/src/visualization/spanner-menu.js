@@ -521,7 +521,7 @@ class SpannerMenu {
         });
 
         // Update node and edge count after node expansion
-        this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (nodes, edges, config) => {
+        this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (currentGraph, updates, config) => {
             this.refreshNodeEdgeCount();
         });
 
