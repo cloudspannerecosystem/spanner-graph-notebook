@@ -119,7 +119,7 @@ describe('GraphServer', () => {
                 }
             });
 
-            await graphServer.nodeExpansion(graphNode);
+            await graphServer.nodeExpansion(graphNode, 'OUTGOING');
 
             expect(mockFetch).toHaveBeenCalledWith(
                 'http://localhost:8000/post_node_expansion',
@@ -167,6 +167,7 @@ describe('GraphServer', () => {
                             'project': 'test-project',
                             'instance': 'test-instance',
                             'database': 'test-database',
+                            'graph': 'test-graph',
                             'mock': false
                         }
                     })

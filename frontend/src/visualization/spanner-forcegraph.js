@@ -806,14 +806,14 @@ class GraphVisualization {
         }
 
         const {nodes, links} = this.graph.graphData();
-        const focusedNodeEdges = links.filter(link => link.source.uid === node.uid || link.target.uid === node.uid);
+        const focusedNodeEdges = links.filter(link => link.sourceUid === node.uid || link.destinationUid === node.uid);
         this.focusedNodeEdges.push(...focusedNodeEdges);
         this.focusedNodeNeighbors = nodes.filter(n => {
             if (n.uid === node.uid) {
                 return false;
             }
 
-            const focusedEdges = this.focusedNodeEdges.filter(link => link.source.uid === n.uid || link.target.uid === n.uid);
+            const focusedEdges = this.focusedNodeEdges.filter(link => link.sourceUid === n.uid || link.destinationUid === n.uid);
             return focusedEdges.length > 0;
         });
     }
@@ -1397,6 +1397,11 @@ class GraphVisualization {
      * @private
      */
     _showMouseContextMenu(node, event) {
+        // Don't show context menu in schema mode
+        if (this.store.config.viewMode === GraphConfig.ViewModes.SCHEMA) {
+            return;
+        }
+
         // Prevent the default context menu
         event.preventDefault();
 
@@ -1404,14 +1409,6 @@ class GraphVisualization {
         const existingMenu = document.querySelector('.graph-context-menu');
         if (existingMenu) {
             existingMenu.remove();
-        }
-
-        const edgeDirections = {};
-        for (const edge of this.store.getEdgesOfNode(node)) {
-            if (edgeDirections[edge.getDisplayName()]) {
-                continue;
-            }
-            edgeDirections[edge.getDisplayName()] = edge.source === node ? '->' : '<-';
         }
 
         const edgeButtons = this.store.getEdgeTypesOfNode(node).map(({label, direction}) => {
@@ -1422,17 +1419,14 @@ class GraphVisualization {
 
         const html = `
             <div class="graph-context-menu">
-                <div class="context-menu-item has-submenu">
-                    <span>Expand</span>
-                    <span class="submenu-arrow">›</span>
-                    <div class="submenu">
-                        <div class="context-menu-item node-expand-edge" data-direction="${Edge.Direction.INCOMING.description}">All incoming edges</div>
-                        <div class="context-menu-item node-expand-edge" data-direction="${Edge.Direction.OUTGOING.description}">All outgoing edges</div>
-                        ${edgeButtons.join('')}
-                    </div>
+                <div class="context-menu-item node-expand-edge" data-direction="${Edge.Direction.INCOMING.description}" data-label="">
+                    ${this.incomingEdgeSvg} All incoming edges
                 </div>
-                <div id="context-menu-hide-button" class="context-menu-item">Hide</div>
-                <div id="context-menu-hide-others-button" class="context-menu-item">Hide all others</div>
+                <div class="context-menu-item node-expand-edge" data-direction="${Edge.Direction.OUTGOING.description}" data-label="">
+                    ${this.outgoingEdgeSvg} All outgoing edges
+                </div>
+                <div class="context-menu-divider"></div>
+                ${edgeButtons.join('')}
             </div>
         `;
 
@@ -1456,28 +1450,30 @@ class GraphVisualization {
             }
         };
 
+        // Add click handlers directly to the menu
+        menu.addEventListener('click', (e) => {
+            const expandButton = e.target.closest('.node-expand-edge');
+            if (!expandButton) return;
+
+            const edgeLabel = expandButton.dataset.label;
+            const direction = expandButton.dataset.direction;
+
+            // Fix node position during expansion
+            node.fx = node.x;
+            node.fy = node.y;
+            this.nodesToUnlockPosition.push(node);
+
+            this.store.setFocusedObject();
+            this.store.setSelectedObject(node);
+            this.store.requestNodeExpansion(node, direction, edgeLabel);
+
+            menu.remove();
+            document.removeEventListener('click', closeMenu);
+
+            this.showLoadingStateForNode(node);
+        });
+
         document.addEventListener('click', closeMenu);
-
-        // Add event listeners for node expansion of individual edge types
-        for (const element of document.body.querySelectorAll('.node-expand-edge')) {
-            const edgeLabel = element.dataset.label;
-            const direction = element.dataset.direction;
-
-            element.addEventListener('click', () => {
-                // Fix node position during expansion
-                node.fx = node.x;
-                node.fy = node.y;
-                this.nodesToUnlockPosition.push(node);
-
-                this.store.setFocusedObject();
-                this.store.setSelectedObject(node);
-                this.store.requestNodeExpansion(node, direction, edgeLabel);
-
-                menu.remove();
-
-                this.showLoadingStateForNode(node);
-            });
-        }
     }
 
     /**

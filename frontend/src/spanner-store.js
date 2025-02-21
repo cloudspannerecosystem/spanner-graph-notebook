@@ -307,8 +307,12 @@ class GraphStore {
         return Array.from(edgeTypes);
     }
 
+    /**
+     * @param {Node} node
+     * @returns {Node[]}
+     */
     getNeighborsOfNode(node) {
-        if (!node || !node instanceof Node) {
+        if (!node || !(node instanceof Node)) {
             return [];
         }
 
@@ -319,7 +323,7 @@ class GraphStore {
     }
 
     edgeIsConnectedToNode(edge, node) {
-        if (!edge || !edge instanceof Edge || !node || !node instanceof Node) {
+        if (!edge || !(edge instanceof Edge) || !node || !(node instanceof Node)) {
             return false;
         }
 

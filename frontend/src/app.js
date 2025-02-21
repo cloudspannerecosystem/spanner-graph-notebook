@@ -285,7 +285,7 @@ class SpannerApp {
                     z-index: 10;
                     pointer-events: none !important;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    border: 1px solid #34A853;
+                    border: 1px solid rgba(0, 0, 0, 0.1);
                     opacity: 1;
                     transition: opacity 0.3s ease-in-out;
                     user-select: none;
@@ -389,29 +389,11 @@ class SpannerApp {
                 .context-menu-item:hover {
                     background-color: #f1f3f4;
                 }
-        
-                .has-submenu {
-                    position: relative;
-                }
-        
-                .submenu-arrow {
-                    margin-left: 16px;
-                    color: #5f6368;
-                }
-        
-                .submenu {
-                    position: absolute;
-                    left: 100%;
-                    top: -4px;
-                    background: white;
-                    border-radius: 4px;
-                    min-width: 160px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                    display: none;
-                }
-        
-                .has-submenu:hover .submenu {
-                    display: block;
+
+                .context-menu-divider {
+                    height: 1px;
+                    background-color: #dadce0;
+                    margin: 4px 0;
                 }
             </style>
             <div class="container">
