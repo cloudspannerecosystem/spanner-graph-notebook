@@ -433,13 +433,33 @@ class GraphStore {
      * @param {Array<EdgeData>} edgesData
      */
     appendGraphData(nodesData, edgesData) {
-        const validNodes = Array.isArray(nodesData) && nodesData.length;
-        const validEdges = Array.isArray(edgesData) && edgesData.length;
-        if (!validNodes && !validEdges) {
+        const newNodes = [];
+        if (Array.isArray(nodesData)) {
+            for (const nodeData of nodesData) {
+                if (this.config.nodes[nodeData.identifier]) {
+                    continue;
+                }
+
+                newNodes.push(nodeData);
+            }
+        }
+
+        const newEdges = [];
+        if (Array.isArray(edgesData)) {
+            for (const edgeData of edgesData) {
+                if (this.config.edges[edgeData.identifier]) {
+                    continue;
+                }
+
+                newEdges.push(edgeData);
+            }
+        }
+
+        if (!newNodes.length && !newEdges.length) {
             return;
         }
 
-        this.config.appendGraphData(validNodes ? nodesData : [], validEdges ? edgesData : []);
+        this.config.appendGraphData(newNodes, newEdges);
         this.eventListeners[GraphStore.EventTypes.GRAPH_DATA_UPDATE]
             .forEach(callback => callback(this.getNodes(), this.getEdges(), this.config));
     }

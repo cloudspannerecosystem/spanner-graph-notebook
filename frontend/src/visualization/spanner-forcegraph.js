@@ -259,8 +259,6 @@ class GraphVisualization {
         errorTooltip.style.left = `${nodeScreenPos.x}px`;
         errorTooltip.style.top = `${nodeScreenPos.y}px`;
 
-        console.log(nodeScreenPos);
-        
         // Auto-remove after delay
         setTimeout(() => errorTooltip.remove(), 5000);
     }
