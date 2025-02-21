@@ -155,6 +155,9 @@ class SpannerApp {
 
                 this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_REQUEST,
                     (node, direction, edgeLabel, config) => {
+                        // Show loading state through GraphVisualization
+                        this.graph._showLoadingStateForNode(node);
+
                         this.server.nodeExpansion(node, direction, edgeLabel)
                             .then(response => {
                                 if (!response) {
@@ -162,6 +165,14 @@ class SpannerApp {
                                 }
                                 
                                 this.store.appendGraphData(response.response.nodes, response.response.edges);
+                            })
+                            .catch(error => {
+                                // Show error state through GraphVisualization
+                                this.graph._showErrorStateForNode(node, error);
+                            })
+                            .finally(() => {
+                                // Hide loading state through GraphVisualization
+                                this.graph._hideLoadingStateForNode(node);
                             });
                     });
 
@@ -218,7 +229,55 @@ class SpannerApp {
                     height: 616px;
                     position: relative;
                 }
-            
+
+                .node-loading-spinner {
+                    position: absolute;
+                    width: 40px;
+                    height: 40px;
+                    border: 3px solid rgba(26, 115, 232, 0.1);
+                    border-radius: 50%;
+                    border-top: 3px solid #1a73e8;
+                    animation: spin 1s linear infinite;
+                    pointer-events: none;
+                    transform: translate(-50%, -50%);
+                }
+
+                .node-loading-spinner::after {
+                    content: '';
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    bottom: -2px;
+                    border: 2px solid rgba(26, 115, 232, 0.1);
+                    border-top: 2px solid transparent;
+                    border-radius: 50%;
+                }
+
+                .node-error-tooltip {
+                    position: absolute;
+                    background: #d93025;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 10;
+                    pointer-events: none;
+                    animation: fadeInOut 5s ease-in-out;
+                }
+
+                @keyframes spin {
+                    0% { transform: translate(-50%, -50%) rotate(0deg); }
+                    100% { transform: translate(-50%, -50%) rotate(360deg); }
+                }
+
+                @keyframes fadeInOut {
+                    0% { opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { opacity: 0; }
+                }
+
                 .error  {
                     position: absolute;
                     top: 20px;

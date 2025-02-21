@@ -169,6 +169,103 @@ class GraphVisualization {
     outgoingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M640-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-90 0-156.5-57T403-440H80v-80h323q14-86 80.5-143T640-720q100 0 170 70t70 170q0 100-70 170t-170 70Zm0-240Z"/></svg>`;
 
     /**
+     * The loading spinner element
+     * @type {HTMLElement|null}
+     */
+    loadingSpinner = null;
+
+    /**
+     * The currently loading node
+     * @type {Node|null}
+     */
+    loadingNode = null;
+
+    /**
+     * Shows a loading indicator for a node that is being expanded
+     * @param {Node} node - The node to show loading state for
+     * @private
+     */
+    _showLoadingStateForNode(node) {
+        // If we already have a loading node, hide it first
+        if (this.loadingNode) {
+            this._hideLoadingStateForNode(this.loadingNode);
+        }
+
+        this.loadingNode = node;
+        
+        // Create loading spinner if it doesn't exist
+        if (!this.loadingSpinner) {
+            this.loadingSpinner = document.createElement('div');
+            this.loadingSpinner.className = 'node-loading-spinner';
+            this.mount.appendChild(this.loadingSpinner);
+        }
+
+        // Update spinner position
+        this._updateLoadingSpinnerPosition();
+
+        // Update node visual state - make it slightly transparent during loading
+        this.graph.nodeColor(n => {
+            if (n.uid === node.uid) {
+                return this.lightenColor(this.store.getColorForNode(n), 0.2);
+            }
+            return this.store.getColorForNode(n);
+        });
+    }
+
+    /**
+     * Updates the position of the loading spinner to match the loading node
+     * @private
+     */
+    _updateLoadingSpinnerPosition() {
+        if (!this.loadingSpinner || !this.loadingNode) return;
+
+        const nodeScreenPos = this.graph.graph2ScreenCoords(this.loadingNode.x, this.loadingNode.y);
+        this.loadingSpinner.style.left = `${nodeScreenPos.x}px`;
+        this.loadingSpinner.style.top = `${nodeScreenPos.y}px`;
+    }
+
+    /**
+     * Hides the loading indicator for a node
+     * @param {Node} node - The node to hide loading state for
+     * @private
+     */
+    _hideLoadingStateForNode(node) {
+        if (this.loadingSpinner) {
+            this.loadingSpinner.remove();
+            this.loadingSpinner = null;
+        }
+        
+        this.loadingNode = null;
+        
+        // Reset node color
+        this.graph.nodeColor(n => this.store.getColorForNode(n));
+    }
+
+    /**
+     * Shows an error state for a node when expansion fails
+     * @param {Node} node - The node that failed to expand
+     * @param {Error} error - The error that occurred
+     * @private
+     */
+    _showErrorStateForNode(node, error) {
+        // Create error tooltip
+        const errorTooltip = document.createElement('div');
+        errorTooltip.className = 'node-error-tooltip';
+        errorTooltip.textContent = `Failed to load new data: ${error.message}`;
+        this.mount.appendChild(errorTooltip);
+        
+        // Position near node
+        const nodeScreenPos = this.graph.graph2ScreenCoords(node.x, node.y);
+        errorTooltip.style.left = `${nodeScreenPos.x}px`;
+        errorTooltip.style.top = `${nodeScreenPos.y}px`;
+
+        console.log(nodeScreenPos);
+        
+        // Auto-remove after delay
+        setTimeout(() => errorTooltip.remove(), 5000);
+    }
+
+    /**
      * Renders a graph visualization.
      * @param {GraphStore} inStore - The store to derive configuration from.
      * @param {HTMLElement} inMount - The DOM element that the graph will be rendered in.
@@ -277,7 +374,7 @@ class GraphVisualization {
         store.addEventListener(GraphStore.EventTypes.LAYOUT_MODE_CHANGE,
             (layoutMode, lastLayoutMode) => this.onLayoutModeChange(layoutMode, lastLayoutMode));
 
-            // Subscribe to graph data updates
+        // Subscribe to graph data updates
         this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (nodes, edges, config) => {
             const graphData = {
                 nodes: nodes,
@@ -1300,6 +1397,8 @@ class GraphVisualization {
                 this.store.requestNodeExpansion(node, direction, edgeLabel);
 
                 menu.remove();
+
+                this._showLoadingStateForNode(node);
             });
         }
     }
@@ -1328,10 +1427,6 @@ class GraphVisualization {
         offscreenCanvas.height = this.mount.offsetHeight;
 
         this.graph
-            // The canvas can sometimes exceed
-            // the dimensions of the HTMLElement
-            // it is mounted to. This fixes
-            // that issue.
             .width(this.mount.offsetWidth)
             .height(this.mount.clientHeight)
             .nodeId('uid')
@@ -1365,24 +1460,25 @@ class GraphVisualization {
             .onBackgroundClick(event => {
                 this.store.setSelectedObject(null);
             })
+            .onZoom(() => this._updateLoadingSpinnerPosition())
+            .onEngineStop(() => {
+                if (this.requestedRecenter) {
+                    this.graph.zoomToFit(1000, this._getRecenterPadding());
+                    this.requestedRecenter = false;
+                }
+
+                for (const node of this.nodesToUnlockPosition) {
+                    node.fx = undefined;
+                    node.fy = undefined;
+                }
+                this.nodesToUnlockPosition = [];
+
+                this._updateLoadingSpinnerPosition();
+            })
             .calculateLineLengthByCluster()
             .drawNodes()
             .drawEdges()
             .cooldownTime(1250);
-
-        // fit to canvas when engine stops
-        this.graph.onEngineStop(() => {
-            if (this.requestedRecenter) {
-                this.graph.zoomToFit(1000, this._getRecenterPadding());
-                this.requestedRecenter = false;
-            }
-
-            for (const node of this.nodesToUnlockPosition) {
-                node.fx = undefined;
-                node.fy = undefined;
-            }
-            this.nodesToUnlockPosition = [];
-        });
 
         this.graph.graphData(graphData);
     }
