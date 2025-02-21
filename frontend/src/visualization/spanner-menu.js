@@ -1,17 +1,21 @@
-/* # Copyright 2023 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+/**
+ * Copyright 2025 Google LLC
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    GraphStore = require('../spanner-store');
+}
 
 class SpannerMenu {
     svg = {
@@ -373,9 +377,7 @@ class SpannerMenu {
                     </div>
                 </div>
                 
-                <div class="element-count">
-                    ${Object.keys(this.store.config.nodes).length} nodes, ${Object.keys(this.store.config.edges).length} edges
-                </div>
+                <div class="element-count"></div>
                 
                 <div class="toggle-container" id="show-labels-container">
                     <label class="toggle-switch">
@@ -407,6 +409,16 @@ class SpannerMenu {
         this.elements.showLabels.switch = this.mount.querySelector('#show-labels');
 
         this.elements.fullscreen = this.mount.querySelector('.fullscreen-button');
+
+        this.refreshNodeEdgeCount();
+    }
+
+    refreshNodeEdgeCount() {
+        if (!this.elements.nodeEdgeCount) {
+            return;
+        }
+
+        this.elements.nodeEdgeCount.textContent = `${Object.keys(this.store.config.nodes).length} nodes, ${Object.keys(this.store.config.edges).length} edges`;
     }
 
     initializeEvents() {
@@ -508,6 +520,11 @@ class SpannerMenu {
            this.elements.showLabels.switch.checked = visible;
         });
 
+        // Update node and edge count after node expansion
+        this.store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE, (nodes, edges, config) => {
+            this.refreshNodeEdgeCount();
+        });
+
         // Toggle Fullscreen
         if (typeof google === 'undefined') {
             const debounce = (callback, timeout = 300) => {
@@ -560,4 +577,8 @@ class SpannerMenu {
             });
         }
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = SpannerMenu;
 }
