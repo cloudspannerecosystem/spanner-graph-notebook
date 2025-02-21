@@ -74,15 +74,6 @@ def get_nodes_edges(data: Dict[str, List[Any]], fields: List[StructType.Field], 
 
                 elif item["kind"] == "edge" and Edge.is_valid_edge_json(item):
                     edge = Edge.from_json(item)
-                    # Create implicit nodes for source and destination if they don't exist
-                    # if edge.source not in node_identifiers:
-                        # source_node = Node(edge.source, [], {})
-                        # nodes.append(source_node)
-                        # node_identifiers.add(edge.source)
-                    # if edge.destination not in node_identifiers:
-                        # dest_node = Node(edge.destination, [], {})
-                        # nodes.append(dest_node)
-                        # node_identifiers.add(edge.destination)
                     edges.append(edge)
 
     return nodes, edges
