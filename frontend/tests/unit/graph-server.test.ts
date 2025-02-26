@@ -28,25 +28,25 @@ describe('GraphServer', () => {
 
     beforeEach(() => {
         mockFetch.mockClear();
-        graphServer = new GraphServer(8000, {
+        graphServer = new GraphServer(8000, JSON.stringify({
             'project': 'test-project',
             'instance': 'test-instance',
             'database': 'test-database',
             'graph': 'test-graph',
             'mock': false
-        });
+        }));
     });
 
     describe('constructor', () => {
         it('should initialize with the default variables', () => {
             expect(graphServer.port).toBe(8000);
-            expect(graphServer.params).toStrictEqual({
+            expect(graphServer.params).toBe(JSON.stringify({
                 'project': 'test-project',
                 'instance': 'test-instance',
                 'database': 'test-database',
                 'graph': 'test-graph',
                 'mock': false
-            });
+            }));
         });
 
         it('should fail to initialize when no port is provided', () => {
@@ -70,11 +70,12 @@ describe('GraphServer', () => {
         });
 
         it('should set params values', () => {
-            expect(graphServer.params.project).toBe('test-project');
-            expect(graphServer.params.instance).toBe('test-instance');
-            expect(graphServer.params.database).toBe('test-database');
-            expect(graphServer.params.graph).toBe('test-graph');
-            expect(graphServer.params.mock).toBe(false);
+            const params = JSON.parse(graphServer.params);
+            expect(params.project).toBe('test-project');
+            expect(params.instance).toBe('test-instance');
+            expect(params.database).toBe('test-database');
+            expect(params.graph).toBe('test-graph');
+            expect(params.mock).toBe(false);
         });
     });
 
@@ -163,13 +164,7 @@ describe('GraphServer', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         query: queryString,
-                        params: {
-                            'project': 'test-project',
-                            'instance': 'test-instance',
-                            'database': 'test-database',
-                            'graph': 'test-graph',
-                            'mock': false
-                        }
+                        params: graphServer.params
                     })
                 }
             );
