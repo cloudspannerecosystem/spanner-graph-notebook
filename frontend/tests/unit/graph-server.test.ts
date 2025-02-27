@@ -198,7 +198,7 @@ describe('GraphServer', () => {
 
         it('should include error details in rejection message', async () => {
             await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, 'INVALID'))
-                .rejects.toThrow(/Allowed types are: BYTES, DATE, ENUM, INT64, NUMERIC, FLOAT32, FLOAT64, STRING, TIMESTAMP/);
+                .rejects.toThrow(/Allowed types are: BOOL, BYTES, DATE, ENUM, INT64, NUMERIC, FLOAT32, FLOAT64, STRING, TIMESTAMP/);
         });
     });
 
