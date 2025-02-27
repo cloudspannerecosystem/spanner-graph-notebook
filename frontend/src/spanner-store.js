@@ -68,6 +68,24 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
  * @returns {void}
  */
 
+/**
+ * @callback NodeExpansionRequestCallback
+ * @param {Node} node
+ * @param {Edge.Direction} direction
+ * @param {String} edgeLabel
+ * @param {PropertyDeclarationType|null} propertyType
+ * @param {GraphConfig} config - The graph configuration
+ * @returns {void}
+ */
+
+/**
+ * @callback GraphDataUpdateCallback
+ * @param {{nodes: Array<Node>, edges: Array<Edge>}} currentGraph - The current state of the graph
+ * @param {{newNodes: Array<NodeData>, newEdges: Array<EdgeData>}} updates - The newly added data
+ * @param {GraphConfig} config - The graph configuration
+ * @returns {void}
+ */
+
 class GraphStore {
     /**
      * The configuration that the graph store is based on.
@@ -95,43 +113,34 @@ class GraphStore {
         COLOR_SCHEME: Symbol('colorScheme'),
         VIEW_MODE_CHANGE: Symbol('viewModeChange'),
         LAYOUT_MODE_CHANGE: Symbol('layoutModeChange'),
-        SHOW_LABELS: Symbol('showLabels')
+        SHOW_LABELS: Symbol('showLabels'),
+        NODE_EXPANSION_REQUEST: Symbol('nodeExpansionRequest'),
+        GRAPH_DATA_UPDATE: Symbol('graphDataUpdate')
     });
 
     /**
      * Events that are broadcasted to GraphVisualization implementations.
-     * @type Map<GraphStore.EventTypes, GraphConfigCallback[]>.
+     * @type {Object.<GraphStore.EventTypes, Array<Function>>}
+     * @property {Array<GraphConfigCallback>} [GraphStore.EventTypes.CONFIG_CHANGE]
+     * @property {Array<FocusedGraphObjectCallback>} [GraphStore.EventTypes.FOCUS_OBJECT]
+     * @property {Array<SelectedGraphObjectCallback>} [GraphStore.EventTypes.SELECT_OBJECT]
+     * @property {Array<SelectedGraphColorSchemeCallback>} [GraphStore.EventTypes.COLOR_SCHEME]
+     * @property {Array<ViewModeChangedCallback>} [GraphStore.EventTypes.VIEW_MODE_CHANGE]
+     * @property {Array<LayoutModeChangedCallback>} [GraphStore.EventTypes.LAYOUT_MODE_CHANGE]
+     * @property {Array<ShowLabelsCallback>} [GraphStore.EventTypes.SHOW_LABELS]
+     * @property {Array<NodeExpansionRequestCallback>} [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]
+     * @property {Array<GraphDataUpdateCallback>} [GraphStore.EventTypes.GRAPH_DATA_UPDATE]
      */
     eventListeners = {
-        /**
-         * Stores event listeners for config changes.
-         * @type {GraphStore.EventTypes.CONFIG_CHANGE, GraphConfigCallback[]>}
-         */
         [GraphStore.EventTypes.CONFIG_CHANGE]: [],
-        /**
-         * @type {GraphStore.EventTypes.FOCUS_OBJECT, FocusedGraphObjectCallback[]>}
-         */
         [GraphStore.EventTypes.FOCUS_OBJECT]: [],
-        /**
-         * @type {GraphStore.EventTypes.SELECT_OBJECT, SelectedGraphObjectCallback[]>}
-         */
         [GraphStore.EventTypes.SELECT_OBJECT]: [],
-        /**
-         * @type {GraphStore.EventTypes.COLOR_SCHEME, SelectedGraphColorSchemeCallback[]>}
-         */
         [GraphStore.EventTypes.COLOR_SCHEME]: [],
-        /**
-         * @type {GraphStore.EventTypes.VIEW_MODE_CHANGE, ViewModeChangedCallback[]>}
-         */
         [GraphStore.EventTypes.VIEW_MODE_CHANGE]: [],
-        /**
-         * @type {GraphStore.EventTypes.LAYOUT_MODE_CHANGE, LayoutModeChangedCallback[]>}
-         */
         [GraphStore.EventTypes.LAYOUT_MODE_CHANGE]: [],
-        /**
-         * @type {GraphStore.EventTypes.SHOW_LABELS, ShowLabelsCallback[]>}
-         */
-        [GraphStore.EventTypes.SHOW_LABELS]: []
+        [GraphStore.EventTypes.SHOW_LABELS]: [],
+        [GraphStore.EventTypes.NODE_EXPANSION_REQUEST]: [],
+        [GraphStore.EventTypes.GRAPH_DATA_UPDATE]: []
     };
 
     /**
@@ -243,47 +252,84 @@ class GraphStore {
         return [];
     }
 
+    /**
+     * @param {Node} node
+     * @returns {Edge[]}
+     */
     getEdgesOfNode(node) {
         if (!node || !node instanceof Node) {
             return [];
         }
 
-        return this.getEdges().filter(edge => edge.source === node || edge.target === node);
+        return this.getEdges().filter(edge => edge.sourceUid === node.uid || edge.destinationUid === node.uid);
     }
 
-    getNodeById(id) {
-        return this.getNodes().find(node => node.id === id);
-    }
-
-    getNeighborsOfObject(graphObject) {
-        if (!graphObject || !graphObject instanceof GraphObject) {
+    /**
+     * Gets all possible edge types for a node based on its labels and the schema
+     * @param {Node} node - The node to get edge types for
+     * @returns {Array<{label: string, direction: 'INCOMING' | 'OUTGOING'}>} Array of edge types with their directions
+     */
+    getEdgeTypesOfNode(node) {
+        if (!node || !(node instanceof Node)) {
             return [];
         }
 
-        if (graphObject instanceof Node) {
-            return this.getNeighborsOfNode(graphObject);
-        }
+        // Find matching node tables for this node's labels
+        const matchingNodeTables = this.config.schema.rawSchema.nodeTables.filter(nodeTable => 
+            node.labels.some(label => nodeTable.labelNames.includes(label))
+        );
 
-        if (graphObject instanceof Edge) {
-            return [graphObject.source, graphObject.target];
-        }
+        const edgeTypes = new Set();
+
+        // For each matching node table, find incoming and outgoing edges
+        matchingNodeTables.forEach(nodeTable => {
+            this.config.schema.rawSchema.edgeTables.forEach(edgeTable => {
+                // Check for outgoing edges
+                if (edgeTable.sourceNodeTable.nodeTableName === nodeTable.name) {
+                    edgeTable.labelNames.forEach(label => {
+                        edgeTypes.add({
+                            label,
+                            direction: 'OUTGOING'
+                        });
+                    });
+                }
+                
+                // Check for incoming edges
+                if (edgeTable.destinationNodeTable.nodeTableName === nodeTable.name) {
+                    edgeTable.labelNames.forEach(label => {
+                        edgeTypes.add({
+                            label,
+                            direction: 'INCOMING'
+                        });
+                    });
+                }
+            });
+        });
+
+        return Array.from(edgeTypes);
     }
 
+    /**
+     * @param {Node} node
+     * @returns {Node[]}
+     */
     getNeighborsOfNode(node) {
-        if (!node || !node instanceof Node) {
+        if (!node || !(node instanceof Node)) {
             return [];
         }
 
-        const edges = this.getEdgesOfNode(node);
-        return edges.map(edge => edge.source === node ? edge.target : edge.source);
+        return this.getEdgesOfNode(node).map(edge => edge.sourceUid === node.uid ?
+            this.config.nodes[edge.destinationUid] :
+            this.config.nodes[edge.sourceUid]
+        );
     }
 
     edgeIsConnectedToNode(edge, node) {
-        if (!node || !node instanceof Node) {
+        if (!edge || !(edge instanceof Edge) || !node || !(node instanceof Node)) {
             return false;
         }
-        
-        return edge.source === node || edge.target === node
+
+        return edge.sourceUid === node.uid || edge.destinationUid === node.uid
     }
 
     nodeIsNeighborTo(node, potentialNeighbor) {
@@ -335,26 +381,28 @@ class GraphStore {
      * @returns {string} The color for the node based on its label.
      */
     getColorForNodeByLabel(node) {
-        if (!node || !node.label) {
-            console.error('Node must have a label', node);
+        const defaultColor = 'rgb(100, 100, 100)';
+        if (!node) {
+            return defaultColor;
         }
 
+        const displayName = node.getDisplayName();
         switch (this.config.viewMode) {
             case GraphConfig.ViewModes.SCHEMA:
-                const schemaColor = this.config.schemaNodeColors[node.label];
+                const schemaColor = this.config.schemaNodeColors[displayName];
                 if (schemaColor) {
                     return schemaColor;
                 }
                 break;
             case GraphConfig.ViewModes.DEFAULT:
-                const nodeColor = this.config.nodeColors[node.label];
+                const nodeColor = this.config.nodeColors[displayName];
                 if (nodeColor) {
                     return nodeColor;
                 }
                 break;
         }
 
-        return 'rgb(100, 100, 100)';
+        return defaultColor;
     }
 
     /**
@@ -376,31 +424,81 @@ class GraphStore {
     }
 
     /**
+     * @param {Array<NodeData>} nodesData
+     * @param {Array<EdgeData>} edgesData
+     */
+    appendGraphData(nodesData, edgesData) {
+        const newNodes = [];
+        if (Array.isArray(nodesData)) {
+            for (const nodeData of nodesData) {
+                if (this.config.nodes[nodeData.identifier]) {
+                    continue;
+                }
+
+                newNodes.push(nodeData);
+            }
+        }
+
+        const newEdges = [];
+        if (Array.isArray(edgesData)) {
+            for (const edgeData of edgesData) {
+                if (this.config.edges[edgeData.identifier]) {
+                    continue;
+                }
+
+                newEdges.push(edgeData);
+            }
+        }
+
+        if (!newNodes.length && !newEdges.length) {
+            return;
+        }
+
+        this.config.appendGraphData(newNodes, newEdges);
+        this.eventListeners[GraphStore.EventTypes.GRAPH_DATA_UPDATE]
+            .forEach(callback => callback(
+                {nodes: this.getNodes(), edges: this.getEdges()},
+                {newNodes, newEdges},
+                this.config)
+            );
+
+        return {newNodes, newEdges};
+    }
+
+    /**
      * @returns {Array<Node>|*[]}
      */
     getNodes() {
+        /** @type {NodeMap} */
+        let nodeMap = {}
         switch (this.config.viewMode) {
             case GraphConfig.ViewModes.DEFAULT:
-                return this.config.nodes;
+                nodeMap = this.config.nodes;
+                break;
             case GraphConfig.ViewModes.SCHEMA:
-                return this.config.schemaNodes;
-            default:
-                return [];
+                nodeMap = this.config.schemaNodes;
+                break;
         }
+
+        return Object.keys(nodeMap).map(uid => nodeMap[uid]);
     }
 
     /**
      * @returns {Array<Edge>|*[]}
      */
     getEdges() {
+        /** @type {EdgeMap} */
+        let edgeMap = {}
         switch (this.config.viewMode) {
             case GraphConfig.ViewModes.DEFAULT:
-                return this.config.edges;
+                edgeMap = this.config.edges;
+                break;
             case GraphConfig.ViewModes.SCHEMA:
-                return this.config.schemaEdges;
-            default:
-                return [];
+                edgeMap = this.config.schemaEdges;
+                break;
         }
+
+        return Object.keys(edgeMap).map(uid => edgeMap[uid]);
     }
 
     getEdgeDesign(edge) {
@@ -430,6 +528,66 @@ class GraphStore {
         }
 
         return this.config.edgeDesign.default;
+    }
+
+    /**
+     * @param {Node} node
+     * @param {Edge.Direction} direction
+     * @param {string|undefined} edgeLabel
+     */
+    requestNodeExpansion(node, direction, edgeLabel) {
+        // Get the property type for the node's key property
+        const propertyType = node.key_property_names && node.key_property_names.length > 0 
+            ? this.getPropertyType(node, node.key_property_names[0])
+            : null;
+
+        this.eventListeners[GraphStore.EventTypes.NODE_EXPANSION_REQUEST]
+            .forEach(callback => callback(node, direction, edgeLabel, propertyType, this.config));
+    }
+
+    /**
+     * Gets the type of a specific property for a node.
+     * @param {Node} node - The node to get the property type from
+     * @param {string} propertyName - The name of the property to get the type for
+     * @returns {PropertyDeclarationType|null} The type of the property, or null if not found
+     */
+    getPropertyType(node, propertyName) {
+        if (!this.config.schema || !this.config.schema.rawSchema || !node) {
+            return null;
+        }
+
+        const schema = this.config.schema.rawSchema;
+
+        // Find matching node tables for this node's labels
+        const matchingNodeTables = schema.nodeTables.filter(nodeTable => 
+            node.labels.some(label => nodeTable.labelNames.includes(label))
+        );
+
+        if (matchingNodeTables.length === 0) {
+            console.error(`No matching node table found for labels: ${node.labels.join(', ')}`);
+            return null;
+        }
+
+        // Look through all matching node tables for the property
+        for (const nodeTable of matchingNodeTables) {
+            const propertyDef = nodeTable.propertyDefinitions.find(
+                prop => prop.propertyDeclarationName === propertyName
+            );
+            
+            if (propertyDef) {
+                // Find the property declaration to get its type
+                const propertyDecl = schema.propertyDeclarations.find(
+                    decl => decl.name === propertyDef.propertyDeclarationName
+                );
+                
+                if (propertyDecl) {
+                    return propertyDecl.type;
+                }
+            }
+        }
+
+        console.error(`Property ${propertyName} not found in any matching node tables for labels: ${node.labels.join(', ')}`);
+        return null;
     }
 }
 

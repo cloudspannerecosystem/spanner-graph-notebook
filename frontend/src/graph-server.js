@@ -20,6 +20,7 @@ class GraphServer {
     endpoints = {
         getPing: '/get_ping',
         postQuery: '/post_query',
+        postNodeExpansion: '/post_node_expansion',
     };
 
     /**
@@ -28,6 +29,22 @@ class GraphServer {
      */
     params = null;
 
+    /**
+     * The allowed property types for node expansion
+     * @type {Set<string>}
+     */
+    static ALLOWED_PROPERTY_TYPES = new Set([
+        'BOOL',
+        'BYTES',
+        'DATE',
+        'ENUM',
+        'INT64',
+        'NUMERIC',
+        'FLOAT32',
+        'FLOAT64',
+        'STRING',
+        'TIMESTAMP'
+    ]);
 
     buildRoute(endpoint) {
         const hostname = window.location.hostname;
@@ -54,6 +71,76 @@ class GraphServer {
 
         this.port = numericalPort;
         this.params = params
+    }
+
+    /**
+     * @param {Node} node
+     * @param {Edge.Direction} direction
+     * @param {string|undefined} edgeLabel
+     * @param {string|undefined} propertyType The type of the key property (e.g. 'INT64', 'STRING', etc)
+     */
+    nodeExpansion(node, direction, edgeLabel, propertyType) {
+        if (!node.identifiers.length || !node.key_property_names.length) {
+            return Promise.reject(new Error('Node does not have an identifier'));
+        }
+
+        if (!node.uid) {
+            return Promise.reject(new Error('Node does not have a UID'));
+        }
+
+        // Property type is required
+        if (propertyType === undefined || propertyType === null) {
+            return Promise.reject(new Error('Property type must be provided'));
+        }
+
+        // Validate and normalize property type
+        const upperPropertyType = propertyType.toUpperCase();
+        if (!GraphServer.ALLOWED_PROPERTY_TYPES.has(upperPropertyType)) {
+            return Promise.reject(new Error(`Invalid property type: ${propertyType}. Allowed types are: ${Array.from(GraphServer.ALLOWED_PROPERTY_TYPES).join(', ')}`));
+        }
+
+        const {project, instance, database, graph} = JSON.parse(this.params);
+
+        const request = {
+            uid: node.uid,
+            node_key_property_name: node.key_property_names[0],
+            node_key_property_value: node.identifiers[0],
+            node_key_property_type: upperPropertyType,
+            direction
+        };
+
+        if (typeof edgeLabel == 'string' && edgeLabel.length) {
+            request.edge_label = edgeLabel;
+        }
+
+        this.isFetching = true;
+
+        if (typeof google !== 'undefined') {
+            return google.colab.kernel.invokeFunction('graph_visualization.NodeExpansion', [request, this.params])
+                .then(result => result.data['application/json'])
+                .finally(() => this.isFetching = false);
+        }
+
+        // For non-Colab environment, combine params and request
+        const fullRequest = {
+            ...JSON.parse(this.params),
+            ...request
+        };
+
+        return fetch(this.buildRoute(this.endpoints.postNodeExpansion), {
+            method: 'POST',
+            body: JSON.stringify(fullRequest)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json(); // Assuming JSON response
+            })
+            .catch(error => {
+                console.error('There has been a problem with your fetch operation:', error);
+            })
+            .finally(() => this.isFetching = false);
     }
 
     query(queryString) {

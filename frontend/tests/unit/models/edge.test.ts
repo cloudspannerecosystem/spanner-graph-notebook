@@ -17,76 +17,55 @@
 const Edge = require('../../../src/models/edge');
 
 describe('Edge', () => {
-    let edge: typeof Edge;
-
-    beforeEach(() => {
-        edge = new Edge({
-            from: 1,
-            to: 2,
-            label: 'Test Edge',
-            properties: {
-                type: 'connection',
-                weight: 1.0
-            }
-        });
-    });
+    const validEdgeData = {
+        source_node_identifier: 'from',
+        destination_node_identifier: 'destination',
+        identifier: 'me',
+        labels: ['Test Edge'],
+        properties: {
+            type: 'connection',
+            weight: 1.0
+        }
+    };
 
     it('should create a valid edge with required parameters', () => {
+        const edge = new Edge(validEdgeData);
         expect(edge).toBeDefined();
-        expect(edge.from).toBe(1);
-        expect(edge.to).toBe(2);
-        expect(edge.label).toBe('Test Edge');
+        expect(edge.sourceUid).toBe('from');
+        expect(edge.destinationUid).toBe('destination');
+        expect(edge.labels).toEqual(['Test Edge']);
         expect(edge.instantiated).toBe(true);
     });
 
-    it('should set source and target properties correctly', () => {
-        expect(edge.source).toBe(1);
-        expect(edge.target).toBe(2);
-    });
+    it('should fail to instantiate with improper source and destination', () => {
+        const invalidData = [null, undefined, '', 10, {}, []];
 
-    it('should fail to instantiate when "from" is not a number', () => {
-        const invalidEdge = new Edge({
-            from: 'not-a-number',
-            to: 2,
-            label: 'Invalid Edge'
-        });
-        
-        expect(invalidEdge.instantiated).toBe(false);
-    });
+        for (const source_node_identifier of invalidData) {
+            const invalidEdge = new Edge({
+                ...validEdgeData,
+                source_node_identifier,
+            });
 
-    it('should fail to instantiate when "to" is not a number', () => {
-        const invalidEdge = new Edge({
-            from: 1,
-            to: 'not-a-number',
-            label: 'Invalid Edge'
-        });
-        
-        expect(invalidEdge.instantiated).toBe(false);
+            expect(invalidEdge.instantiated).toBe(false);
+            expect(invalidEdge.instantiationErrorReason).toEqual('Edge destination or source invalid')
+        }
+
+        for (const destination_node_identifier of invalidData) {
+            const invalidEdge = new Edge({
+                ...validEdgeData,
+                destination_node_identifier,
+            });
+
+            expect(invalidEdge.instantiated).toBe(false);
+            expect(invalidEdge.instantiationErrorReason).toEqual('Edge destination or source invalid')
+        }
     });
 
     it('should handle properties correctly', () => {
+        const edge = new Edge(validEdgeData);
         expect(edge.properties).toEqual({
             type: 'connection',
             weight: 1.0
         });
-    });
-
-    it('should handle missing properties', () => {
-        const edgeWithoutProps = new Edge({
-            from: 1,
-            to: 2,
-            label: 'No Props'
-        });
-        
-        expect(edgeWithoutProps.properties).toBeUndefined();
-    });
-
-    it('should handle missing label', () => {
-        const edgeWithoutLabel = new Edge({
-            from: 1,
-            to: 2
-        });
-        
-        expect(edgeWithoutLabel.label).toBeUndefined();
     });
 });

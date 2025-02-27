@@ -165,7 +165,7 @@ describe('SidebarConstructor', () => {
             expect(nodeChip.tagName).toBe('SPAN');
             expect(nodeChip.className).toBe('node-chip ');
             expect(nodeChip.style.backgroundColor).toBe(expectedColor);
-            expect(nodeChip.textContent).toBe(mockNode1.label);
+            expect(nodeChip.textContent).toBe(mockNode1.getDisplayName());
         });
 
         it('should create a clickable node chip', () => {
@@ -177,7 +177,7 @@ describe('SidebarConstructor', () => {
             const edgeChip = sidebarConstructor._edgeChipHtml(mockEdge, false);
             expect(edgeChip.tagName).toBe('SPAN');
             expect(edgeChip.className).toBe('edge-chip ');
-            expect(edgeChip.textContent).toBe(mockEdge.label);
+            expect(edgeChip.textContent).toBe(mockEdge.getDisplayName());
         });
 
         it('should create a clickable edge chip', () => {

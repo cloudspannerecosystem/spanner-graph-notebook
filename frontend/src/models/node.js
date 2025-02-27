@@ -20,6 +20,7 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 /**
  * Represents a graph node.
  * @class
+ * @extends GraphObject
  */
 class Node extends GraphObject {
     /**
@@ -27,21 +28,6 @@ class Node extends GraphObject {
      * @type {number}
      */
     value;
-
-    /**
-     * The numeric value associated with the node.
-     * @type {number}
-     */
-    id;
-
-    /**
-     * The numeric value associated with the neighborhood.
-     * This may be used by the visualization implementation for clustering.
-     * @type {number}
-     */
-    neighborhood = 0;
-
-    color = '#ec0001';
 
     /**
      * Human-readable properties that serve to identify or distinguish the node.
@@ -53,38 +39,37 @@ class Node extends GraphObject {
      */
     identifiers = [];
 
+
+    /**
+     * The following properties will be set by ForceGraph.
+     * All are of type Number.
+     */
+    // x;
+    // y;
+    // fx;
+    // fy;
+    // vx;
+    // vy;
+
     /**
      * @typedef {Object} NodeData - The label shown in the sidebar or graph.
-     * @property {string} label
+     * @property {string[]} labels
      * @property {Object} properties - An optional property:value map.
      * @property {Object} key_property_names
      * @property {string} color
-     * @property {number} id
+     * @property {string} identifier
      */
 
     /**
     * A node on the graph
-    *
-    * @param {Object} params
-    * @param {string} params.label - The label for the edge.
-    * @param {string|Object} params.title - The optional property:value map for the edge.
-    * @param {string} params.color - The color of the edge
-    * @extends GraphObject
+    * @param {NodeData} params
     */
-    constructor({ label, title, properties, value, id, neighborhood, color, key_property_names }) {
-        super({ label, title, properties, key_property_names });
+    constructor(params) {
+        const { labels, title, properties, value, key_property_names, identifier } = params;
+        super({ labels, title, properties, key_property_names, identifier });
 
-        if (typeof id != 'number') {
-            this.instantiationErrorReason = "Node does not have an ID";
-            console.error(this.instantiationErrorReason, { label, title, value, id });
-            return;
-        }
-
-        this.id = id;
         this.value = value;
         this.instantiated = true;
-        this.neighborhood = typeof neighborhood === 'number' ? neighborhood : 0;
-        this.color = color;
 
         // Parse the human-readable unique identifiers that
         // distinguishes a node from its peers
@@ -95,6 +80,10 @@ class Node extends GraphObject {
                     this.identifiers.push(identifier);
                 }
             }
+        }
+
+        if (!this.identifiers.length) {
+            this.identifiers.push('Node');
         }
     }
 }

@@ -17,46 +17,78 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
     GraphObject = require('./graph-object');
 }
 
+/**
+ * Represents a graph edge.
+ * @class
+ * @extends GraphObject
+ */
 class Edge extends GraphObject {
     /**
-     * The identifier of the node this edge is directed to.
-     * @type {Node}
+     * Preserve the UID from being overwritten by ForceGraph
+     * @type {GraphObjectUID}
      */
-    target;
+    sourceUid;
 
     /**
-     * The identifier of the node this edge originates from.
+     * Preserve the UID from being overwritten by ForceGraph
+     * @type {GraphObjectUID}
+     */
+    destinationUid;
+
+    /**
+     * ForceGraph inserts a Node reference
      * @type {Node}
      */
     source;
 
     /**
+     * ForceGraph inserts a Node reference
+     * @type {Node}
+     */
+    target;
+
+    /**
+     * Controls the curvature of the edge when rendered in ForceGraph
+     * @type {{
+     *   amount: number,
+     *   nodePairId: string
+     * }}
+     * @property {number} amount The amount of curvature to apply (0 = straight line, 1 = maximum curve)
+     * @property {string} nodePairId Unique identifier for the pair of nodes this edge connects
+     */
+    curvature = {
+        amount: 0,
+        nodePairId: '',
+    };
+
+    static Direction = Object.freeze({
+        INCOMING: Symbol('INCOMING'),
+        OUTGOING: Symbol('OUTGOING')
+    });
+
+    /**
      * @typedef {Object} EdgeData - The label shown in the sidebar or graph.
-     * @property {string} label
+     * @property {string[]} labels
      * @property {string|Object} properties - An optional property:value map.
      * @property {Object} key_property_names
-     * @property {string} color
-     * @property {number} from
-     * @property {number} to
-     * @property {number} id
+     * @property {string} source_node_identifier - The node's UID
+     * @property {string} destination_node_identifier - The node's UID
+     * @property {string} identifier - The edge's UID
+     * @property {string|Object} title - The optional property:value map for the edge.
      */
 
     /**
-    * An edge is the line that connects two Nodes.
-    *
-    * @param {Object} params
-    * @param {string} params.to - The identifier of the node this edge is directed to.
-    * @param {string} params.from - The identifier of the node this edge originates from.
-    * @param {string} params.label - The label for the edge.
-    * @param {string|Object} params.title - The optional property:value map for the edge.
-    * @extends GraphObject
-    */
-    constructor({ to, from, label, properties, title }) {
-        super({ label, title, properties });
+     * An edge is the line that connects two Nodes.
+     * @param {EdgeData} params
+     */
+    constructor(params) {
+        const {source_node_identifier, destination_node_identifier, labels, properties, title, identifier} = params;
+        super({labels, title, properties, identifier});
 
-        if (!this.isNumber(to) || !this.isNumber(from)) {
+        if (!this._validUid(source_node_identifier) || !this._validUid(destination_node_identifier)) {
+            this.instantiationErrorReason = 'Edge destination or source invalid';
             this.instantiated = false;
-            console.log('Failed to instantiate edge', { reason: '"to" and "from" are not numbers', to, from, label, title });
+            console.error(this.instantiationErrorReason, params);
             return;
         }
 
@@ -64,17 +96,10 @@ class Edge extends GraphObject {
          * preserve ID from getting
          * overwritten by ForceGraph
          */
-        this.to = to;
-        this.from = from;
-
-        this.source = from;
-        this.target = to;
+        this.sourceUid = source_node_identifier;
+        this.destinationUid = destination_node_identifier;
 
         this.instantiated = true;
-    }
-
-    isNumber(value) {
-        return Number.isFinite(Number(value));
     }
 }
 
