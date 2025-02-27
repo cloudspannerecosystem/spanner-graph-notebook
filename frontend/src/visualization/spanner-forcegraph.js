@@ -1518,8 +1518,13 @@ class GraphVisualization {
                 node.fx = node.x;
                 node.fy = node.y;
             })
-            .onNodeClick(node => {
-                this.store.setSelectedObject(node);
+            .onNodeClick((node, event) => {
+                // Check if Ctrl key (Windows/Linux) or Cmd key (Mac) is pressed
+                if (event.ctrlKey || event.metaKey) {
+                    this._showMouseContextMenu(node, event);
+                } else {
+                    this.store.setSelectedObject(node);
+                }
             })
             .onNodeRightClick((node, event) => {
                 this._showMouseContextMenu(node, event);
