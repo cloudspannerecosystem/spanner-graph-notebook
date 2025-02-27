@@ -141,6 +141,7 @@ describe('GraphServer', () => {
                         instance: 'test-instance',
                         database: 'test-database',
                         graph: 'test-graph',
+                        mock: false,
                         uid: 'node1',
                         node_key_property_name: 'name',
                         node_key_property_value: 'my-node-name',

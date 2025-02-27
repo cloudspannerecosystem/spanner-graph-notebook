@@ -102,7 +102,6 @@ class GraphServer {
         const {project, instance, database, graph} = JSON.parse(this.params);
 
         const request = {
-            project, instance, database, graph,
             uid: node.uid,
             node_key_property_name: node.key_property_names[0],
             node_key_property_value: node.identifiers[0],
@@ -117,14 +116,20 @@ class GraphServer {
         this.isFetching = true;
 
         if (typeof google !== 'undefined') {
-            return google.colab.kernel.invokeFunction('spanner.NodeExpansion', [], request)
+            return google.colab.kernel.invokeFunction('graph_visualization.NodeExpansion', [request, this.params])
                 .then(result => result.data['application/json'])
                 .finally(() => this.isFetching = false);
         }
 
+        // For non-Colab environment, combine params and request
+        const fullRequest = {
+            ...JSON.parse(this.params),
+            ...request
+        };
+
         return fetch(this.buildRoute(this.endpoints.postNodeExpansion), {
             method: 'POST',
-            body: JSON.stringify(request)
+            body: JSON.stringify(fullRequest)
         })
             .then(response => {
                 if (!response.ok) {
