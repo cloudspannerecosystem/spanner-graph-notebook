@@ -749,4 +749,82 @@ describe('GraphStore', () => {
             expect(design).toBe(store.config.edgeDesign.default);
         });
     });
+
+    describe('Property Type Resolution', () => {
+        let userNode: typeof GraphNode;
+        let postNode: typeof GraphNode;
+        let multiLabelNode: typeof GraphNode;
+
+        beforeEach(() => {
+            // Create test nodes with different labels
+            userNode = new GraphNode({ identifier: 'user1', labels: ['User'] });
+            postNode = new GraphNode({ identifier: 'post1', labels: ['Post'] });
+            multiLabelNode = new GraphNode({ identifier: 'multi1', labels: ['User', 'Post'] });
+        });
+
+        it('should return correct property type for a node', () => {
+            const ageType = store.getPropertyType(userNode, 'age');
+            const nameType = store.getPropertyType(userNode, 'name');
+            
+            expect(ageType).toBe('INT64');
+            expect(nameType).toBe('STRING');
+        });
+
+        it('should return correct property type for a different node type', () => {
+            const nameType = store.getPropertyType(postNode, 'name');
+            expect(nameType).toBe('STRING');
+        });
+
+        it('should handle nodes with multiple labels', () => {
+            const nameType = store.getPropertyType(multiLabelNode, 'name');
+            const ageType = store.getPropertyType(multiLabelNode, 'age');
+            
+            expect(nameType).toBe('STRING');
+            expect(ageType).toBe('INT64');
+        });
+
+        it('should return null for non-existent property', () => {
+            const nonExistentType = store.getPropertyType(userNode, 'nonexistent');
+            expect(nonExistentType).toBeNull();
+        });
+
+        it('should return null for non-existent node label', () => {
+            const invalidNode = new GraphNode({ identifier: 'invalid1', labels: ['NonExistentLabel'] });
+            const propertyType = store.getPropertyType(invalidNode, 'name');
+            expect(propertyType).toBeNull();
+        });
+
+        it('should handle null/undefined inputs', () => {
+            expect(store.getPropertyType(null, 'name')).toBeNull();
+            expect(store.getPropertyType(undefined, 'name')).toBeNull();
+            expect(store.getPropertyType(userNode, null)).toBeNull();
+            expect(store.getPropertyType(userNode, undefined)).toBeNull();
+        });
+
+        it('should handle nodes with no matching property declarations', () => {
+            // Create a store with schema data that has no property declarations
+            const configWithoutDeclarations = new GraphConfig({
+                nodesData: [],
+                edgesData: [],
+                colorScheme: GraphConfig.ColorScheme.LABEL,
+                rowsData: [],
+                schemaData: {
+                    nodeTables: [{
+                        name: 'Users',
+                        labelNames: ['User'],
+                        propertyDefinitions: [{ propertyDeclarationName: 'age' }],
+                        keyColumns: ['id'],
+                        kind: 'NODE',
+                        baseCatalogName: 'test',
+                        baseSchemaName: 'test',
+                        baseTableName: 'users'
+                    }],
+                    propertyDeclarations: []
+                }
+            });
+            const storeWithoutDeclarations = new GraphStore(configWithoutDeclarations);
+            
+            expect(storeWithoutDeclarations.getPropertyType(userNode, 'age')).toBeNull();
+        });
+    });
 });

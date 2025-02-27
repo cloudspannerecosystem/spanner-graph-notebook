@@ -21,10 +21,51 @@ from enum import Enum
 import requests
 import portpicker
 import atexit
+from google.cloud.spanner_v1 import TypeCode
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.database import get_database_instance
 
+
+# Mapping of string types from frontend to Spanner TypeCode enum values
+PROPERTY_TYPE_MAP = {
+    'BOOL': TypeCode.BOOL,
+    'BYTES': TypeCode.BYTES,
+    'DATE': TypeCode.DATE,
+    'ENUM': TypeCode.ENUM,
+    'INT64': TypeCode.INT64,
+    'NUMERIC': TypeCode.NUMERIC,
+    'FLOAT32': TypeCode.FLOAT32,
+    'FLOAT64': TypeCode.FLOAT64,
+    'STRING': TypeCode.STRING,
+    'TIMESTAMP': TypeCode.TIMESTAMP
+}
+
+def validate_property_type(property_type: str) -> TypeCode:
+    """
+    Validates and converts a property type string to a Spanner TypeCode.
+    
+    Args:
+        property_type: The property type string from the request
+        
+    Returns:
+        The corresponding TypeCode enum value
+        
+    Raises:
+        ValueError: If the property type is invalid
+    """
+    if not property_type:
+        raise ValueError("Property type must be provided")
+        
+    # Convert to uppercase for case-insensitive comparison
+    property_type = property_type.upper()
+    
+    # Check if the type is valid
+    if property_type not in PROPERTY_TYPE_MAP:
+        valid_types = ', '.join(sorted(PROPERTY_TYPE_MAP.keys()))
+        raise ValueError(f"Invalid property type: {property_type}. Allowed types are: {valid_types}")
+    
+    return PROPERTY_TYPE_MAP[property_type]
 
 class EdgeDirection(Enum):
     INCOMING = "INCOMING"
@@ -39,7 +80,8 @@ def execute_node_expansion(
     graph: str,
     uid: str,
     direction: EdgeDirection,
-    edge_label: str = None):
+    edge_label: str = None,
+    property_type: TypeCode = None):
 
     edge = "e" if not edge_label else f"e:{edge_label}"
 
@@ -50,11 +92,21 @@ def execute_node_expansion(
         else f"(n)<-[{edge}]-(d)"
     )
 
+    # Cast the property value according to its type
+    if property_type:
+        # Numeric types and booleans don't need quotes
+        if property_type in (TypeCode.INT64, TypeCode.NUMERIC, TypeCode.FLOAT32, TypeCode.FLOAT64, TypeCode.BOOL):
+            value_str = node_key_property_value
+        else:
+            value_str = f'"{node_key_property_value}"'
+    else:
+        value_str = f'"{node_key_property_value}"'
+
     query = f"""
         GRAPH {graph}
         LET uid = "{uid}"
         MATCH (n)
-        WHERE n.{node_key_property_name} = "{node_key_property_value}" and STRING(TO_JSON(n).identifier) = uid
+        WHERE n.{node_key_property_name} = {value_str} and STRING(TO_JSON(n).identifier) = uid
         RETURN n
 
         NEXT
@@ -199,7 +251,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_post_node_expansion(self):
         data = self.parse_post_data()
-        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "node_key_property_value", "direction"]
+        required_fields = ["project", "instance", "database", "graph", "uid", "node_key_property_name", "node_key_property_value", "direction", "node_key_property_type"]
         missing_fields = [field for field in required_fields if data.get(field) is None]
         
         if missing_fields:
@@ -221,6 +273,12 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_error_response(f"Invalid direction: must be INCOMING or OUTGOING, got \"{data.get('direction')}\"")
             return
 
+        try:
+            property_type = validate_property_type(data.get("node_key_property_type"))
+        except ValueError as e:
+            self.do_error_response(str(e))
+            return
+
         self.do_data_response(execute_node_expansion(
             project=project, 
             instance=instance, 
@@ -230,7 +288,8 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             node_key_property_name=node_key_property_name, 
             node_key_property_value=node_key_property_value,
             direction=direction,
-            edge_label=edge_label
+            edge_label=edge_label,
+            property_type=property_type
         ))
 
     def do_GET(self):

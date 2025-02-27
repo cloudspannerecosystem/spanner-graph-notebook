@@ -154,11 +154,11 @@ class SpannerApp {
                     });
 
                 this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_REQUEST,
-                    (node, direction, edgeLabel, config) => {
+                    (node, direction, edgeLabel, propertyType, config) => {
                         // Show loading state through GraphVisualization
                         this.graph.showLoadingStateForNode(node);
 
-                        this.server.nodeExpansion(node, direction, edgeLabel)
+                        this.server.nodeExpansion(node, direction, edgeLabel, propertyType)
                             .then(data => {
                                 if (!data || !data.response) {
                                     return;

@@ -73,6 +73,8 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
  * @param {Node} node
  * @param {Edge.Direction} direction
  * @param {String} edgeLabel
+ * @param {PropertyDeclarationType|null} propertyType
+ * @param {GraphConfig} config - The graph configuration
  * @returns {void}
  */
 
@@ -534,8 +536,58 @@ class GraphStore {
      * @param {string|undefined} edgeLabel
      */
     requestNodeExpansion(node, direction, edgeLabel) {
+        // Get the property type for the node's key property
+        const propertyType = node.key_property_names && node.key_property_names.length > 0 
+            ? this.getPropertyType(node, node.key_property_names[0])
+            : null;
+
         this.eventListeners[GraphStore.EventTypes.NODE_EXPANSION_REQUEST]
-            .forEach(callback => callback(node, direction, edgeLabel, this.config));
+            .forEach(callback => callback(node, direction, edgeLabel, propertyType, this.config));
+    }
+
+    /**
+     * Gets the type of a specific property for a node.
+     * @param {Node} node - The node to get the property type from
+     * @param {string} propertyName - The name of the property to get the type for
+     * @returns {PropertyDeclarationType|null} The type of the property, or null if not found
+     */
+    getPropertyType(node, propertyName) {
+        if (!this.config.schema || !this.config.schema.rawSchema || !node) {
+            return null;
+        }
+
+        const schema = this.config.schema.rawSchema;
+
+        // Find matching node tables for this node's labels
+        const matchingNodeTables = schema.nodeTables.filter(nodeTable => 
+            node.labels.some(label => nodeTable.labelNames.includes(label))
+        );
+
+        if (matchingNodeTables.length === 0) {
+            console.error(`No matching node table found for labels: ${node.labels.join(', ')}`);
+            return null;
+        }
+
+        // Look through all matching node tables for the property
+        for (const nodeTable of matchingNodeTables) {
+            const propertyDef = nodeTable.propertyDefinitions.find(
+                prop => prop.propertyDeclarationName === propertyName
+            );
+            
+            if (propertyDef) {
+                // Find the property declaration to get its type
+                const propertyDecl = schema.propertyDeclarations.find(
+                    decl => decl.name === propertyDef.propertyDeclarationName
+                );
+                
+                if (propertyDecl) {
+                    return propertyDecl.type;
+                }
+            }
+        }
+
+        console.error(`Property ${propertyName} not found in any matching node tables for labels: ${node.labels.join(', ')}`);
+        return null;
     }
 }
 

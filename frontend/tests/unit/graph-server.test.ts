@@ -100,6 +100,7 @@ describe('GraphServer', () => {
     describe('node expansion', () => {
         const mockDataPath = path.join(__dirname, '../mock-data.json');
         const mockData = JSON.parse(fs.readFileSync(mockDataPath, 'utf8'));
+        let mockNode: typeof GraphNode;
 
         beforeEach(() => {
             mockFetch.mockImplementation(() =>
@@ -108,6 +109,15 @@ describe('GraphServer', () => {
                     json: () => Promise.resolve(mockData)
                 })
             );
+
+            mockNode = new GraphNode({
+                identifier: 'test-id',
+                labels: ['TestLabel'],
+                key_property_names: ['test_key'],
+                properties: {
+                    test_key: 'test-value'
+                }
+            });
         });
 
         it('should make POST request with the correct parameters', async () => {
@@ -120,7 +130,7 @@ describe('GraphServer', () => {
                 }
             });
 
-            await graphServer.nodeExpansion(graphNode, 'OUTGOING');
+            await graphServer.nodeExpansion(graphNode, 'OUTGOING', undefined, 'STRING');
 
             expect(mockFetch).toHaveBeenCalledWith(
                 'http://localhost:8000/post_node_expansion',
@@ -134,10 +144,61 @@ describe('GraphServer', () => {
                         uid: 'node1',
                         node_key_property_name: 'name',
                         node_key_property_value: 'my-node-name',
+                        node_key_property_type: 'STRING',
                         direction: 'OUTGOING'
                     })
                 }
             );
+        });
+
+        it('should accept valid property types', async () => {
+            const validTypes = ['INT64', 'STRING', 'FLOAT64', 'TIMESTAMP', 'BYTES', 'DATE', 'ENUM', 'NUMERIC', 'FLOAT32'];
+            
+            for (const type of validTypes) {
+                await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, type))
+                    .resolves.toBeDefined();
+            }
+        });
+
+        it('should accept lowercase valid property types', async () => {
+            const validTypes = ['int64', 'string', 'float64', 'timestamp', 'bytes', 'date', 'enum', 'numeric', 'float32'];
+            
+            for (const type of validTypes) {
+                await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, type))
+                    .resolves.toBeDefined();
+            }
+        });
+
+        it('should reject invalid property types', async () => {
+            const invalidTypes = ['ARRAY', 'GRAPH_ELEMENT', 'GRAPH_PATH', 'JSON', 'PROTO', 'STRUCT'];
+
+            for (const type of invalidTypes) {
+                await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, type))
+                    .rejects.toThrow(/Invalid property type/);
+            }
+        });
+
+        it('should reject undefined/null property types', async () => {
+            await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, undefined))
+                .rejects.toThrow('Property type must be provided');
+            await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, null))
+                .rejects.toThrow('Property type must be provided');
+        });
+
+        it('should normalize property type to uppercase in request', async () => {
+            await graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, 'string');
+            
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({
+                    body: expect.stringContaining('"node_key_property_type":"STRING"')
+                })
+            );
+        });
+
+        it('should include error details in rejection message', async () => {
+            await expect(graphServer.nodeExpansion(mockNode, 'OUTGOING', undefined, 'INVALID'))
+                .rejects.toThrow(/Allowed types are: BYTES, DATE, ENUM, INT64, NUMERIC, FLOAT32, FLOAT64, STRING, TIMESTAMP/);
         });
     });
 

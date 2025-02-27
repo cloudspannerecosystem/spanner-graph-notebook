@@ -60,14 +60,29 @@ class Schema {
 
     /**
      * @typedef PropertyDeclarationType
-     * @param {'INT64'|'STRING'|'FLOAT64'|'TIMESTAMP'|'BOOL'}
+     * @param {'TYPE_CODE_UNSPECIFIED'|'BOOL'|'INT64'|'FLOAT64'|'FLOAT32'|'TIMESTAMP'|'DATE'|
+     *         'STRING'|'BYTES'|'ARRAY'|'STRUCT'|'NUMERIC'|'JSON'|'PROTO'|'ENUM'}
      */
 
     /**
      * @type {PropertyDeclarationType}
      */
     propertyDeclarationTypes = [
-        'INT64', 'STRING', 'FLOAT64', 'TIMESTAMP', 'BOOL'
+        'TYPE_CODE_UNSPECIFIED',  // Not specified
+        'BOOL',                   // JSON true or false
+        'INT64',                  // String in decimal format
+        'FLOAT64',               // Number or "NaN", "Infinity", "-Infinity"
+        'FLOAT32',               // Number or "NaN", "Infinity", "-Infinity"
+        'TIMESTAMP',             // RFC 3339 timestamp format with "Z" timezone
+        'DATE',                  // RFC 3339 date format
+        'STRING',                // String
+        'BYTES',                 // Base64-encoded string (RFC 4648)
+        'ARRAY',                 // List of elements
+        'STRUCT',                // List representation of struct fields
+        'NUMERIC',               // Decimal or scientific notation format
+        'JSON',                  // RFC 7159 JSON-formatted string
+        'PROTO',                 // Base64-encoded string (RFC 4648)
+        'ENUM'                   // String in decimal format
     ];
 
     /**
