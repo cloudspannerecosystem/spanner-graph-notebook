@@ -54,7 +54,7 @@ class TestNode(unittest.TestCase):
         if node.identifier not in node_mapping:
             node_mapping[node.identifier] = len(node_mapping) + 1
 
-        node.add_to_graph(graph, node_mapping)
+        node.add_to_graph(graph)
 
         self.assertIn(node_mapping["1"], graph)
         node_id = node_mapping["1"]
@@ -96,7 +96,7 @@ class TestEdge(unittest.TestCase):
         }
 
         edge = Edge.from_json(data)
-        edge.add_to_graph(graph, node_mapping, 42)
+        edge.add_to_graph(graph)
 
         self.assertIn((1, 2), graph.edges)
         # self.assertEqual(graph.edges[1, 2]["label"], "KNOWS")
@@ -119,6 +119,6 @@ class TestEdge(unittest.TestCase):
         }
 
         edge = Edge.from_json(data)
-        edge.add_to_graph(graph, node_mapping, 42)
+        edge.add_to_graph(graph)
 
         self.assertNotIn((1, 2), graph.edges)

@@ -153,12 +153,20 @@ class Node:
         self.identifier = identifier
         self.labels = labels
         self.key_property_names = []
-        self.label_str = ""
         self.properties = properties
 
     def __repr__(self):
         return (f"Node(identifier={self.identifier}, "
                 f"labels={self.labels}, properties={self.properties})")
+
+    def to_json(self) -> dict:
+        """Convert the node to a JSON-serializable dictionary."""
+        return {
+            "identifier": self.identifier,
+            "labels": self.labels,
+            "properties": self.properties,
+            "key_property_names": self.key_property_names
+        }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> Node:
@@ -168,74 +176,6 @@ class Node:
             labels=data.get("labels", []),
             properties=data.get("properties", {}),
         )
-
-    def decide_label_string(self, node_display_props: dict[str, str]) -> None:
-        """Returns the label string for the node."""
-        if not node_display_props:
-            self.label_str = "|".join(self.labels)
-        else:
-            for label in self.labels:
-                label_case_incens = label.lower()
-                if label_case_incens in node_display_props:
-                    prop = node_display_props[label_case_incens]
-                    if prop in self.properties:
-                        val = self.properties[prop]
-                        self.label_str = f"{label} ({val})"
-                        break
-            if not self.label_str:
-                self.label_str = "|".join(self.labels)
-
-    def add_to_graph(self, graph: nx.MultiDiGraph,
-                     node_mapper: Dict[str, int]) -> None:
-        """Add the node to a NetworkX graph using the `node_mapping`
-            for retrieving the node_id for use in the graph.
-            The node_id retrieved from the node_mapper helps hide
-            the opaque identifier with a long unreadable string.
-
-        Args:
-            graph: The networkx graph to add this node onto.
-            node_id_mapping: A mapping to replace the opaque node identifer
-                          with a number for ease of use.
-        """
-
-        node_id = node_mapper[self.identifier]
-
-        graph.add_node(
-            node_id,
-            id=node_id,
-            label=self.label_str,
-            properties=self.properties,
-            key_property_names=self.key_property_names,
-        )
-
-    @staticmethod
-    def hash_to_rgb(hash_value: int) -> str:
-        """Computes an rgb color from `hash_value`"""
-        red = (hash_value >> 16) & 0xFF
-        green = (hash_value >> 8) & 0xFF
-        blue = hash_value & 0xFF
-        return f"rgb({red}, {green}, {blue})"
-
-    @staticmethod
-    def get_unique_color_from_palette(label: str,
-                                      color_palette: list[str]) -> str:
-        if not label:
-            return "lightgray"
-
-        # Check if label already has an assigned color
-        if (label in reserved_colors):
-            return reserved_colors[label]
-
-        # Fallback to hash if all colors have been reserved
-        if len(color_palette) == 0:
-            return Node.hash_to_rgb(sum(ord(char) for char in label))
-
-        # Assign a color to the label
-        color = color_palette[0]
-        reserved_colors[label] = color
-        color_palette.pop(0)
-
-        return color
 
     @staticmethod
     def is_valid_node_json(node_data: Dict[str, Any]) -> bool:
@@ -300,12 +240,21 @@ class Edge:
         self.source = source
         self.destination = destination
         self.labels = labels
-        self.label_str = ""
         self.properties = properties
 
     def __repr__(self):
         return (f"Edge(source={self.source}, destination={self.destination}, "
                 f"labels={self.labels}, properties={self.properties})")
+
+    def to_json(self) -> dict:
+        """Convert the edge to a JSON-serializable dictionary."""
+        return {
+            "identifier": self.identifier,
+            "labels": self.labels,
+            "properties": self.properties,
+            "source_node_identifier": self.source,
+            "destination_node_identifier": self.destination
+        }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> Edge:
@@ -360,24 +309,7 @@ class Edge:
         except KeyError:
             return False
 
-    def decide_label_string(self, edge_display_props: dict[str, str]) -> None:
-        """Returns the label string for the edge."""
-        if not edge_display_props:
-            self.label_str = "|".join(self.labels)
-        else:
-            for label in self.labels:
-                label_case_incens = label.lower()
-                if label_case_incens in edge_display_props:
-                    prop = edge_display_props[label_case_incens]
-                    if prop in self.properties:
-                        val = self.properties[prop]
-                        self.label_str = f"{label} ({val})"
-                        break
-            if not self.label_str:
-                self.label_str = "|".join(self.labels)
-
-    def add_to_graph(self, graph: nx.MultiDiGraph,
-                     node_mapping: Dict[str, int], numerical_id: number) -> None:
+    def add_to_graph(self, graph: nx.MultiDiGraph) -> None:
         """Add this edge to a NetworkX graph using the `node_mapping` to find
             the source and destination numeric identifer.
             All nodes must have been added to the graph before adding edges.
@@ -389,17 +321,12 @@ class Edge:
 
         Returns: None
         """
-        if self.source in node_mapping and self.destination in node_mapping:
-            source = node_mapping[self.source]
-            destination = node_mapping[self.destination]
-
-            graph.add_edge(
-                source,
-                destination,
-                key=self.identifier,
-                id=numerical_id,
-                source=source,
-                target=destination,
-                label=self.label_str,
-                properties=self.properties,
-            )
+        graph.add_edge(
+            self.source,
+            self.destination,
+            uid=self.identifier,
+            source=self.source,
+            target=self.destination,
+            labels=self.labels,
+            properties=self.properties,
+        )

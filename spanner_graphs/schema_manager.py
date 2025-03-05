@@ -52,9 +52,25 @@ class SchemaManager:
 
         return node_label_to_property_names
 
-    def get_key_property_names(self, obj: Node) -> List[str]:
-        if not isinstance(obj, Node):
+    def get_key_property_names(self, node: Node) -> List[str]:
+        if not isinstance(node, Node):
             raise TypeError("node expected")
-        if len(obj.labels) == 1 and obj.labels[0] in self.unique_node_labels:
-            return self.node_label_to_property_names.get(obj.labels[0], [])
+
+        if not isinstance(node.properties, dict) or len(node.properties) == 0:
+            return []
+            
+        if not isinstance(node.labels, list) or not node.labels or len(node.labels) == 0:
+            return []
+
+        sorted_node_labels = sorted(node.labels)
+        
+        for node_table in self.schema_dict.get('nodeTables', []):
+            label_names = node_table.get('labelNames', [])
+            key_columns = node_table.get('keyColumns', [])
+            
+            if (len(label_names) == len(sorted_node_labels) and 
+                sorted(label_names) == sorted_node_labels and
+                all(key in node.properties.keys() for key in key_columns)):
+                return key_columns
+                
         return []

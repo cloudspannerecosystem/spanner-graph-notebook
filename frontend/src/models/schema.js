@@ -60,14 +60,29 @@ class Schema {
 
     /**
      * @typedef PropertyDeclarationType
-     * @param {'INT64'|'STRING'|'FLOAT64'|'TIMESTAMP'|'BOOL'}
+     * @param {'TYPE_CODE_UNSPECIFIED'|'BOOL'|'INT64'|'FLOAT64'|'FLOAT32'|'TIMESTAMP'|'DATE'|
+     *         'STRING'|'BYTES'|'ARRAY'|'STRUCT'|'NUMERIC'|'JSON'|'PROTO'|'ENUM'}
      */
 
     /**
      * @type {PropertyDeclarationType}
      */
     propertyDeclarationTypes = [
-        'INT64', 'STRING', 'FLOAT64', 'TIMESTAMP', 'BOOL'
+        'TYPE_CODE_UNSPECIFIED',
+        'BOOL',
+        'INT64',
+        'FLOAT64',
+        'FLOAT32',
+        'TIMESTAMP',
+        'DATE',
+        'STRING',
+        'BYTES',
+        'ARRAY',
+        'STRUCT',
+        'NUMERIC',
+        'JSON',
+        'PROTO',
+        'ENUM'
     ];
 
     /**

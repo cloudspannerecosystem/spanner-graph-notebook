@@ -104,6 +104,8 @@ describe('SpannerSidebar', () => {
                     button.click();
                 }
             });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
         });
 
         it('should be immediately visible with nothing selected', async () => {

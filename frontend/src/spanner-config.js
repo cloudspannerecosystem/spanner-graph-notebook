@@ -19,6 +19,11 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
     Schema = require('./models/schema');
 }
 
+/** @typedef {GraphObjectUID} NodeUID */
+/** @typedef {Record<GraphObjectUID, Node>} NodeMap */
+/** @typedef {Record<GraphObjectUID, Edge>} EdgeMap */
+/** @typedef {Record<NodeUID, Edge>} NeighborMap */
+
 class GraphConfig {
 
     /**
@@ -28,28 +33,28 @@ class GraphConfig {
     schema = null;
 
     /**
-     * The array of node objects to be rendered.
-     * @type {Array<Node>}
+     * A map of nodes generated from the Schema where the key is the node's UID and the value is the Node instance.
+     * @type {NodeMap}
      */
-    schemaNodes = [];
+    schemaNodes = {};
 
     /**
-     * The array of edge objects to be rendered.
-     * @type {Array<Edge>}
+     * The map of edges generated from the Schema to be rendered where the key is the edge's UID and the value is the Edge instance.
+     * @type {EdgeMap}
      */
-    schemaEdges = [];
+    schemaEdges = {};
 
     /**
-     * The array of node objects to be rendered.
-     * @type {Array<Node>}
+     * A map of nodes where the key is the node's UID and the value is the Node instance.
+     * @type {NodeMap}
      */
-    nodes = [];
+    nodes = {};
 
     /**
-     * The array of edge objects to be rendered.
-     * @type {Array<Edge>}
+     * The map of edge objects to be rendered where the key is the edge's UID and the value is the Edge instance.
+     * @type {EdgeMap}
      */
-    edges = [];
+    edges = {};
 
     /**
      * Raw data of rows from Spanner Graph
@@ -143,6 +148,21 @@ class GraphConfig {
 
     showLabels = false;
 
+    
+    /**
+     * Map of neighbors with the connecting edges
+     * @type {Object.<GraphObjectUID, NeighborMap>}
+     */
+    neighborsOfNode = {}
+    /**
+     * Set of edges pertaining to a specific node
+     * @type {Object.<GraphObjectUID, Set<Edge>>}
+     */
+    edgesOfNode = {}
+
+    nodeCount = 0;
+    schemaNodeCount = 0;
+
     /**
      * Constructs a new GraphConfig instance.
      * @constructor
@@ -158,6 +178,7 @@ class GraphConfig {
      */
     constructor({ nodesData, edgesData, colorPalette, colorScheme, rowsData, schemaData, queryResult}) {
         this.nodes = this.parseNodes(nodesData);
+        this.nodeCount = Object.keys(this.nodes).length;
         this.edges = this.parseEdges(edgesData);
         this.parseSchema(schemaData);
 
@@ -184,12 +205,22 @@ class GraphConfig {
 
         const labels = new Set();
 
-        for (const node of this.nodes) {
-            labels.add(node.label);
+        for (const uid of Object.keys(this.nodes)) {
+            const node = this.nodes[uid];
+            if (!node || !(node instanceof Node)) {
+                continue;
+            }
+
+            labels.add(node.getDisplayName());
         }
 
-        for (const schemaNode of this.schemaNodes) {
-            labels.add(schemaNode.label);
+        for (const uid of Object.keys(this.schemaNodes)) {
+            const node = this.schemaNodes[uid];
+            if (!node || !(node instanceof Node)) {
+                continue;
+            }
+
+            labels.add(node.getDisplayName());
         }
 
         for (const label of labels) {
@@ -226,22 +257,21 @@ class GraphConfig {
              * @param {NodeTable} nodeTable
              * @returns {NodeData}
              */
-            (nodeTable, i) => {
-                const name = this.schema.getDisplayName(nodeTable)
-
+            (nodeTable) => {
                 /**
                  * @type {NodeData}
                  */
                 return {
-                    label: name,
+                    labels: nodeTable.labelNames,
                     properties: this.schema.getPropertiesOfTable(nodeTable),
                     color: 'rgb(0, 0, 100)', // this isn't used
                     key_property_names: ['id'],
-                    id: this.schema.getNodeTableId(nodeTable)
+                    identifier: this.schema.getNodeTableId(nodeTable).toString()
                 };
             }
         );
         this.schemaNodes = this.parseNodes(nodesData);
+        this.schemaNodeCount = Object.keys(this.schemaNodes).length;
 
         const edgesData = this.schema.rawSchema.edgeTables.map(
             /**
@@ -250,27 +280,27 @@ class GraphConfig {
              */
             (edgeTable, i) => {
                 const connectedNodes = this.schema.getNodesOfEdges(edgeTable);
-                const name = this.schema.getDisplayName(edgeTable)
 
                 /**
                  * @type {EdgeData}
                  */
                 return {
-                    label: name,
+                    labels: edgeTable.labelNames,
                     properties: this.schema.getPropertiesOfTable(edgeTable),
                     color: 'rgb(0, 0, 100)', // this isn't used
-                    to: this.schema.getNodeTableId(connectedNodes.to),
-                    from: this.schema.getNodeTableId(connectedNodes.from),
+                    destination_node_identifier: this.schema.getNodeTableId(connectedNodes.to).toString(),
+                    source_node_identifier: this.schema.getNodeTableId(connectedNodes.from).toString(),
                     key_property_names: ['id'],
-                    id: this.schema.getEdgeTableId(edgeTable)
+                    identifier: this.schema.getEdgeTableId(edgeTable).toString()
                 };
         });
         this.schemaEdges = this.parseEdges(edgesData);
     }
 
     /**
-     * Parses an array of node data, instantiates nodes, and adds them to the graph.
+     * Parses an array of node data, instantiates Nodes, and adds them to the graph.
      * @param {Array<NodeData>} nodesData - An array of objects representing the data for each node.
+     * @returns {NodeMap}
      * @throws {Error} Throws an error if `nodesData` is not an array.
      */
     parseNodes(nodesData) {
@@ -279,8 +309,8 @@ class GraphConfig {
             throw Error('Nodes must be an array');
         }
 
-        /** @type {Node[]} */
-        const nodes = []
+        /** @type {NodeMap} */
+        const nodes = {};
         nodesData.forEach(nodeData => {
             if (!(nodeData instanceof Object)) {
                 console.error('Node data is not an object', nodeData);
@@ -294,7 +324,7 @@ class GraphConfig {
                 return;
             }
             if (node instanceof Node && node.instantiated) {
-                nodes.push(node);
+                nodes[node.uid] = node;
             } else {
                 node.instantiationErrorReason = 'Could not construct an instance of Node';
                 console.error(node.instantiationErrorReason, { nodeData, node });
@@ -304,14 +334,20 @@ class GraphConfig {
         return nodes;
     }
 
+    /**
+     * Parses an array of edge data, instantiates Edges, and adds them to the graph.
+     * @param {Array<EdgeData>} edgesData - An array of objects representing the data for each edge.
+     * @returns {EdgeMap}
+     * @throws {Error} Throws an error if `edgesData` is not an array.
+     */
     parseEdges(edgesData) {
         if (!Array.isArray(edgesData)) {
             console.error('Edges must be an array', edgesData)
             throw Error('Edges must be an array');
         }
 
-        /** @type {Edge[]} */
-        const edges = []
+        /** @type {EdgeMap} */
+        const edges = {}
         edgesData.forEach(edgeData => {
             if (!(edgeData instanceof Object)) {
                 console.error('Edge data is not an object', edgeData);
@@ -325,7 +361,10 @@ class GraphConfig {
                 return;
             }
             if (edge instanceof Edge) {
-                edges.push(edge);
+                edges[edge.uid] = edge;
+                
+                // Update indices right when edge is created
+                this._updateEdgeIndices(edge);
             } else {
                 edge.instantiationErrorReason = 'Could not construct an instance of Edge';
                 console.error(edge.instantiationErrorReason, { edgeData, edge });
@@ -333,6 +372,63 @@ class GraphConfig {
         });
 
         return edges;
+    }
+
+    /**
+     * Update the indexing of node and edge relationships
+     * @param {Edge} edge
+     * @private
+     */
+    _updateEdgeIndices(edge) {
+        if (!this.neighborsOfNode[edge.sourceUid]) {
+            this.neighborsOfNode[edge.sourceUid] = {};
+        }
+
+        if (!this.neighborsOfNode[edge.destinationUid]) {
+            this.neighborsOfNode[edge.destinationUid] = {};
+        }
+
+        if (!this.edgesOfNode[edge.sourceUid]) {
+            this.edgesOfNode[edge.sourceUid] = new Set();
+        }
+
+        if (!this.edgesOfNode[edge.destinationUid]) {
+            this.edgesOfNode[edge.destinationUid] = new Set();
+        }
+
+        this.neighborsOfNode[edge.sourceUid][edge.destinationUid] = edge;
+        this.neighborsOfNode[edge.destinationUid][edge.sourceUid] = edge;
+
+        this.edgesOfNode[edge.sourceUid].add(edge);
+        this.edgesOfNode[edge.destinationUid].add(edge);
+    }
+
+    /**
+     * @param {Array<NodeData>} nodesData
+     * @param {Array<EdgeData>} edgesData
+     * @returns {{newNodes: NodeMap, newEdges: EdgeMap}} Object containing maps of newly added nodes and edges
+     */
+    appendGraphData(nodesData, edgesData) {
+        const newNodes = this.parseNodes(nodesData);
+        const newEdges = this.parseEdges(edgesData);
+
+        for (const uid of Object.keys(newNodes)) {
+            if (!this.nodes[uid]) {
+                this.nodes[uid] = newNodes[uid];
+            }
+        }
+
+        this.nodeCount = Object.keys(this.nodes).length;
+
+        for (const uid of Object.keys(newEdges)) {
+            if (!this.edges[uid]) {
+                this.edges[uid] = newEdges[uid];
+            }
+        }
+
+        this.assignColors();
+
+        return {newNodes, newEdges};
     }
 }
 

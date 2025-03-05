@@ -1,5 +1,5 @@
 /**
- * Copyright 2024 Google LLC
+ * Copyright 2025 Google LLC
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -113,15 +113,9 @@ class SpannerApp {
                     query_result
                 } = response;
 
-                const fixedEdges = edges.map(edge => ({
-                    ...edge,
-                    to: edge.to instanceof Number ? edge.to : edge.target,
-                    from: edge.from instanceof Number ? edge.from : edge.source
-                }));
-
                 const graphConfig = new GraphConfig({
                     nodesData: nodes,
-                    edgesData: fixedEdges,
+                    edgesData: edges,
                     colorScheme: GraphConfig.ColorScheme.LABEL,
                     rowsData: rows,
                     schemaData: schema,
@@ -157,6 +151,38 @@ class SpannerApp {
                             this.componentMounts.sidebar.classList.remove('hidden');
                             this.componentMounts.table.classList.add('hidden');
                         }
+                    });
+
+                this.store.addEventListener(GraphStore.EventTypes.NODE_EXPANSION_REQUEST,
+                    (node, direction, edgeLabel, properties, config) => {
+                        // Show loading state through GraphVisualization
+                        this.graph.showLoadingStateForNode(node);
+
+                        this.server.nodeExpansion(node, direction, edgeLabel, properties)
+                            .then(data => {
+                                if (!data || !data.response) {
+                                    return;
+                                }
+
+                                const newData = this.store.appendGraphData(data.response.nodes, data.response.edges)
+                                if (newData) {
+                                    // Show success message before appending data
+                                    this.graph.showSuccessStateForNode(node, {
+                                        nodesAdded: newData.newNodes.length,
+                                        edgesAdded: newData.newEdges.length
+                                    });
+                                } else {
+                                    this.graph.showSuccessStateForNode(node, {nodesAdded: 0, edgesAdded: 0});
+                                }
+                            })
+                            .catch(error => {
+                                // Show error state through GraphVisualization
+                                this.graph.showErrorStateForNode(node, error);
+                            })
+                            .finally(() => {
+                                // Hide loading state through GraphVisualization
+                                this.graph.hideLoadingStateForNode(node);
+                            });
                     });
 
                 if (!nodes.length) {
@@ -212,7 +238,72 @@ class SpannerApp {
                     height: 616px;
                     position: relative;
                 }
-            
+
+                .node-loading-spinner {
+                    position: absolute;
+                    width: 40px;
+                    height: 40px;
+                    border: 3px solid rgba(26, 115, 232, 0.1);
+                    border-radius: 50%;
+                    border-top: 3px solid #1a73e8;
+                    animation: spin 1s linear infinite;
+                    pointer-events: none;
+                    transform: translate(-50%, -50%);
+                }
+
+                .node-loading-spinner::after {
+                    content: '';
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    bottom: -2px;
+                    border: 2px solid rgba(26, 115, 232, 0.1);
+                    border-top: 2px solid transparent;
+                    border-radius: 50%;
+                }
+
+                .node-error-tooltip {
+                    position: absolute;
+                    background: #d93025;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 10;
+                    pointer-events: none;
+                    animation: fadeInOut 5s ease-in-out;
+                }
+
+                .node-success-toast {
+                    position: absolute;
+                    background: white;
+                    color: #3C4043;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 10;
+                    pointer-events: none !important;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    border: 1px solid rgba(0, 0, 0, 0.1);
+                    opacity: 1;
+                    transition: opacity 0.3s ease-in-out;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }
+
+                @keyframes spin {
+                    0% { transform: translate(-50%, -50%) rotate(0deg); }
+                    100% { transform: translate(-50%, -50%) rotate(360deg); }
+                }
+
+                @keyframes fadeInOut {
+                    0% { opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { opacity: 0; }
+                }
+
                 .error  {
                     position: absolute;
                     top: 20px;
@@ -268,6 +359,41 @@ class SpannerApp {
                   100% {
                     transform: rotate(360deg);
                   }
+                }
+                
+                .graph-context-menu {
+                    position: fixed;
+                    background: white;
+                    border-radius: 4px;
+                    padding: 0;
+                    min-width: 160px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+                    font-size: 14px;
+                    z-index: 1000;
+                }
+        
+                .context-menu-item {
+                    padding: 12px;
+                    margin-right: 0;
+                    cursor: pointer;
+                    color: #3c4043;
+                    display: flex;
+                    align-items: center;
+                }
+                
+                .context-menu-item svg {
+                    margin-right: 5px;
+                }
+        
+                .context-menu-item:hover {
+                    background-color: #f1f3f4;
+                }
+
+                .context-menu-divider {
+                    height: 1px;
+                    background-color: #dadce0;
+                    margin: 4px 0;
                 }
             </style>
             <div class="container">

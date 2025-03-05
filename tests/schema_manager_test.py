@@ -77,6 +77,7 @@ class TestSchemaManager(unittest.TestCase):
             "identifier": "1",
             "labels": ["Person"],
             "properties": {
+                "id": "123",
                 "type": "Current"
             },
         }
@@ -91,6 +92,7 @@ class TestSchemaManager(unittest.TestCase):
             "labels": ["Account"],
             "properties": {
                 "type": "Current"
+                # Missing 'account_id' property which is required according to the schema
             },
         }
 
@@ -113,3 +115,68 @@ class TestSchemaManager(unittest.TestCase):
     def test_type_error(self):
         with self.assertRaises(TypeError):
             self.schema_manager.get_key_property_names("NotANode")
+
+    def test_multi_label_node(self):
+        """Test that a node with multiple labels returns the correct key property names."""
+        item = {
+            "identifier": "1",
+            "labels": ["Person", "Human"],
+            "properties": {
+                "id": "123",
+                "name": "John Doe"
+            },
+        }
+        node = Node.from_json(item)
+        property_names = self.schema_manager.get_key_property_names(node)
+        self.assertEqual(property_names, ["id"])
+
+    def test_multi_label_node_different_order(self):
+        """Test that label order doesn't matter when matching node tables."""
+        item = {
+            "identifier": "1",
+            "labels": ["Human", "Person"],  # Reversed order from schema
+            "properties": {
+                "id": "123",
+                "name": "John Doe"
+            },
+        }
+        node = Node.from_json(item)
+        property_names = self.schema_manager.get_key_property_names(node)
+        self.assertEqual(property_names, ["id"])
+
+    def test_missing_key_properties(self):
+        """Test that when a node is missing key properties, an empty list is returned."""
+        item = {
+            "identifier": "1",
+            "labels": ["Person", "Human"],
+            "properties": {
+                "name": "John Doe"  # Missing 'id' property
+            },
+        }
+        node = Node.from_json(item)
+        property_names = self.schema_manager.get_key_property_names(node)
+        self.assertEqual(property_names, [])
+
+    def test_empty_properties(self):
+        """Test that a node with empty properties returns an empty list."""
+        item = {
+            "identifier": "1",
+            "labels": ["Person"],
+            "properties": {},
+        }
+        node = Node.from_json(item)
+        property_names = self.schema_manager.get_key_property_names(node)
+        self.assertEqual(property_names, [])
+
+    def test_empty_labels(self):
+        """Test that a node with empty labels returns an empty list."""
+        item = {
+            "identifier": "1",
+            "labels": [],
+            "properties": {
+                "id": "123"
+            },
+        }
+        node = Node.from_json(item)
+        property_names = self.schema_manager.get_key_property_names(node)
+        self.assertEqual(property_names, [])

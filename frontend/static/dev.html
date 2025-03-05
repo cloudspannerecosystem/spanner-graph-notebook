@@ -493,6 +493,12 @@ LIMIT 50"></textarea>
             const query = document.getElementById('query').value;
             const mock = document.getElementById('mock').checked;
 
+            let graph = "";
+            const graphMatch = query.match(/GRAPH\s+(\w+)/i);
+            if (graphMatch) {
+                graph = graphMatch[1];
+            }
+
             // Save configuration to localStorage
             localStorage.setItem('spanner-graph-config', JSON.stringify({
                 project,
@@ -510,7 +516,8 @@ LIMIT 50"></textarea>
                 'project': project,
                 'instance': instance,
                 'database': database,
-                'mock': mock
+                'mock': mock,
+                'graph': graph
             };
 
             window.app = new SpannerApp({

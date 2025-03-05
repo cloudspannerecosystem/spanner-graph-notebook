@@ -1,4 +1,4 @@
-/* # Copyright 2023 Google LLC
+/* # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,10 @@ class SidebarConstructor {
 
     leftArrowSvg = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#3C4043"><path d="M560-280 360-480l200-200v400Z"/></svg>';
 
+    incomingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M320-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-100 0-170-70T80-480q0-100 70-170t170-70q90 0 156.5 57T557-520h323v80H557q-14 86-80.5 143T320-240Zm0-240Z"/></svg>`;
+
+    outgoingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M640-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-90 0-156.5-57T403-440H80v-80h323q14-86 80.5-143T640-720q100 0 170 70t70 170q0 100-70 170t-170 70Zm0-240Z"/></svg>`;
+
     /**
      *
      * @type {GraphStore}
@@ -50,6 +54,11 @@ class SidebarConstructor {
     container = null;
 
     /**
+     * @type {Object.<string, boolean>}
+     */
+    sectionCollapseState = null;
+
+    /**
      * Helper method
      * @param {Node} node
      * @param {Boolean} clickable
@@ -60,7 +69,7 @@ class SidebarConstructor {
         const nodeChip = document.createElement('span');
         nodeChip.style.backgroundColor = this.store.getColorForNode(node);
         nodeChip.className = `node-chip ${clickable ? 'clickable' : ''}`;
-        nodeChip.textContent = customLabel || node.label;
+        nodeChip.textContent = customLabel || node.getDisplayName();
 
         if (clickable) {
             nodeChip.addEventListener('mouseenter', () => {
@@ -89,7 +98,7 @@ class SidebarConstructor {
     _edgeChipHtml(edge, clickable = false) {
         const edgeChip = document.createElement('span');
         edgeChip.className = `edge-chip ${clickable ? 'clickable' : ''}`;
-        edgeChip.textContent = edge.label;
+        edgeChip.textContent = edge.getDisplayName();
 
         if (clickable) {
             edgeChip.addEventListener('mouseenter', () => {
@@ -248,16 +257,27 @@ class SidebarConstructor {
         },
     };
 
-    constructor(store, mount) {
+    /**
+     * @param {GraphStore} store
+     * @param {HTMLElement} mount
+     * @param {Object.<string, boolean>} sectionCollapseState
+     */
+    constructor(store, mount, sectionCollapseState) {
         this.store = store;
         this.elements.mount = mount;
+        this.sectionCollapseState = sectionCollapseState;
 
+        this.refresh();
+    }
+
+    refresh() {
         this.scaffold();
         this.title();
 
         if (this.store.config.selectedGraphObject) {
             if (this.store.config.selectedGraphObject instanceof Node) {
                 this.properties();
+                this.expandNode();
                 this.neighbors();
             } else {
                 this.neighbors();
@@ -409,6 +429,7 @@ class SidebarConstructor {
                     font-size: 12px;
                     color: #666;
                     display: flex;
+                    padding-right: 6px;
                 }
     
                 .section-content {
@@ -535,6 +556,11 @@ class SidebarConstructor {
                     display: flex;
                     justify-content: start;
                     align-items: center;
+                    cursor: pointer;
+                }
+                
+                .neighbor-row-neighbor * {
+                    cursor: pointer;
                 }
                 
                 .neighbor-row-edge {
@@ -572,6 +598,90 @@ class SidebarConstructor {
                     display: flex;
                     flex-wrap: wrap;
                     row-gap: 12px;
+                }
+
+                /* Expand button styles */
+                .expand-button {
+                    display: flex;
+                    align-items: center;
+                    padding: 8px 10px;
+                    margin: 2px 0;
+                    border: none;
+                    border-radius: 4px;
+                    background: none;
+                    cursor: pointer;
+                    width: 100%;
+                    font-size: 13px;
+                    color: #3C4043;
+                    transition: all 0.2s;
+                    position: relative;
+                    overflow: hidden;
+                }
+                .expand-button-general {
+                    font-weight: 500;
+                }
+                .expand-button:hover:not(.loading) {
+                    background-color: #F1F3F4;
+                }
+                .expand-button-general:hover:not(.loading) {
+                    background-color: #EBEEF0;
+                }
+                .expand-button.loading {
+                    background-color: #F8F9FA;
+                    cursor: default;
+                    color: #80868B;
+                }
+                .expand-button.loading svg {
+                    opacity: 0.5;
+                }
+                .expand-button svg {
+                    margin-right: 8px;
+                    transition: opacity 0.2s;
+                }
+                .expand-button-text {
+                    flex-grow: 1;
+                    text-align: left;
+                }
+                .expand-button-arrow {
+                    opacity: 0.6;
+                    transition: opacity 0.2s;
+                }
+                .expand-button:hover .expand-button-arrow {
+                    opacity: 1;
+                }
+                .expand-button.loading .expand-button-arrow {
+                    opacity: 0;
+                }
+                .expand-button::after {
+                    content: '';
+                    position: absolute;
+                    width: 100%;
+                    height: 2px;
+                    background: linear-gradient(90deg, 
+                        rgba(26, 115, 232, 0.2),
+                        rgba(26, 115, 232, 1),
+                        rgba(26, 115, 232, 1),
+                        rgba(26, 115, 232, 0.2)
+                    );
+                    bottom: 0;
+                    left: -100%;
+                    transition: none;
+                    opacity: 0;
+                }
+                .expand-button.loading::after {
+                    opacity: 1;
+                    animation: loading-animation 1s infinite linear;
+                    transition: opacity 0.2s;
+                }
+                @keyframes loading-animation {
+                    0% { left: -100%; }
+                    100% { left: 100%; }
+                }
+                
+                /* Expand divider style */
+                .expand-divider {
+                    height: 1px;
+                    background-color: #DADCE0;
                 }
             </style>
             <div class="panel">
@@ -641,7 +751,7 @@ class SidebarConstructor {
     }
 
     /**
-     *
+     * Creates a section with a collapsible header
      * @param {String} titleText
      * @param {Array<HTMLElement>} rows
      * @param {boolean} hasHeader
@@ -661,7 +771,7 @@ class SidebarConstructor {
         content.className = 'section-content';
 
         let header = null;
-        let title = null
+        let title = null;
         let button = null;
 
         if (hasHeader) {
@@ -671,7 +781,21 @@ class SidebarConstructor {
             title = document.createElement('h3');
             title.textContent = titleText;
 
-            button = this._initToggleButton([content]);
+            // Use the stored collapse state or default to expanded
+            const isCollapsed = this.sectionCollapseState[titleText] ?? false;
+            content.style.display = isCollapsed ? 'none' : 'block';
+
+            button = document.createElement('button');
+            button.className = 'collapse-btn';
+            button.innerHTML = isCollapsed ? this.downArrowSvg : this.upArrowSvg;
+            
+            button.addEventListener('click', () => {
+                const isCurrentlyCollapsed = content.style.display === 'none';
+                content.style.display = isCurrentlyCollapsed ? 'block' : 'none';
+                button.innerHTML = isCurrentlyCollapsed ? this.upArrowSvg : this.downArrowSvg;
+                // Update the collapse state in the parent
+                this.sectionCollapseState[titleText] = !isCurrentlyCollapsed;
+            });
 
             container.appendChild(header);
             header.appendChild(title);
@@ -728,41 +852,65 @@ class SidebarConstructor {
             return;
         }
 
-        const neighbors = [];
+        /**
+         * @type {HTMLElement[]}
+         */
+        const neighborRowElements = [];
         if (selectedObject instanceof Node) {
-            const edges = this.store.getEdgesOfNode(selectedObject);
-            edges.forEach((edge) => {
-                const neighbor = edge.source === selectedObject ? edge.target : edge.source;
+            const neighborMap = this.store.getNeighborsOfNode(selectedObject);
+            for (const nodeUid of Object.keys(neighborMap)) {
+                const node = this.store.getNode(nodeUid);
+                if (!(node instanceof Node)) {
+                    continue;
+                }
+
+                const edge = neighborMap[nodeUid];
+                if (!(edge instanceof Edge)) {
+                    continue;
+                }
+
                 const neighborRowDiv = document.createElement('div');
                 neighborRowDiv.className = 'neighbor-row';
 
                 const neighborDiv = document.createElement('div');
                 neighborDiv.className = 'neighbor-row-neighbor';
 
-                // Arrow to denote inbound/outbound relationship
+                // Make the entire neighbor area interactive
+                neighborDiv.addEventListener('mouseenter', () => {
+                    if (this.store.config.selectedGraphObject !== node) {
+                        this.store.setFocusedObject(node);
+                    }
+                });
+                neighborDiv.addEventListener('mouseleave', () => {
+                    this.store.setFocusedObject(null);
+                });
+                neighborDiv.addEventListener('click', () => {
+                    this.store.setFocusedObject(null);
+                    this.store.setSelectedObject(node);
+                });
+
                 const arrowSpan = document.createElement('span');
                 arrowSpan.className = 'arrow';
-                arrowSpan.innerHTML = this.leftArrowSvg;
-                if (edge.source !== selectedObject) {
-                    arrowSpan.innerHTML = this.rightArrowSvg;
-                }
+                arrowSpan.innerHTML = edge.sourceUid === selectedObject ?
+                    this.outgoingEdgeSvg : this.incomingEdgeSvg;
+                neighborDiv.appendChild(arrowSpan);
 
-                // Node Neighbor
-                neighborDiv.appendChild(this._nodeChipHtml(neighbor, true));
 
-                // Node Neighbor ID
+                // Node Neighbor - now without its own click handlers since the parent handles it
+                const nodeChip = this._nodeChipHtml(node, false);
+                nodeChip.style.marginRight = '8px';
+                neighborDiv.appendChild(nodeChip);
+
+                // Node Neighbor ID with background matching node color
                 if (this.store.config.viewMode === GraphConfig.ViewModes.DEFAULT) {
-                    const idSpan = document.createElement('span');
-                    idSpan.className = 'neighbor-id';
-                    idSpan.textContent = neighbor.identifiers.join(', ');
-                    neighborDiv.appendChild(idSpan);
+                    const idContainer = document.createElement('span');
+                    idContainer.className = 'neighbor-id';
+                    idContainer.textContent = node.identifiers.join(', ');
+                    neighborDiv.appendChild(idContainer);
                 }
 
                 const edgeDiv = document.createElement('div');
                 edgeDiv.className = 'neighbor-row-edge';
-
-                // arrowSpan.appendChild(arrowSvg);
-                edgeDiv.appendChild(arrowSpan);
 
                 // Edge connecting the neighbors
                 edgeDiv.appendChild(this._edgeChipHtml(edge, true));
@@ -770,8 +918,8 @@ class SidebarConstructor {
                 neighborRowDiv.appendChild(neighborDiv);
                 neighborRowDiv.appendChild(edgeDiv);
 
-                neighbors.push(neighborRowDiv);
-            });
+                neighborRowElements.push(neighborRowDiv);
+            }
         } else if (selectedObject instanceof Edge) {
             const container = document.createElement('div');
             container.className = 'section';
@@ -801,13 +949,34 @@ class SidebarConstructor {
 
                 const value = document.createElement('div');
                 value.className = 'edge-neighbor-node';
-                value.appendChild(this._nodeChipHtml(neighbor, true));
+                value.style.cursor = 'pointer';
+                value.style.display = 'flex';
+                value.style.alignItems = 'center';
+                
+                // Make the entire value area interactive
+                value.addEventListener('mouseenter', () => {
+                    if (this.store.config.selectedGraphObject !== neighbor) {
+                        this.store.setFocusedObject(neighbor);
+                    }
+                });
+                value.addEventListener('mouseleave', () => {
+                    this.store.setFocusedObject(null);
+                });
+                value.addEventListener('click', () => {
+                    this.store.setFocusedObject(null);
+                    this.store.setSelectedObject(neighbor);
+                });
+
+                // Node chip without its own click handlers
+                const nodeChip = this._nodeChipHtml(neighbor, false);
+                nodeChip.style.marginRight = '8px';
+                value.appendChild(nodeChip);
 
                 if (this.store.config.viewMode === GraphConfig.ViewModes.DEFAULT) {
-                    const neighborIdElement = document.createElement('span');
-                    neighborIdElement.className = 'neighbor-id';
-                    neighborIdElement.textContent = neighbor.identifiers.join(', ');
-                    value.appendChild(neighborIdElement);
+                    const idContainer = document.createElement('span');
+                    idContainer.className = 'neighbor-id';
+                    idContainer.textContent = neighbor.identifiers.join(', ');
+                    value.appendChild(idContainer);
                 }
 
                 neighborRow.appendChild(value);
@@ -822,9 +991,9 @@ class SidebarConstructor {
 
         if (selectedObject instanceof Node) {
             this.elements.neighbors = this._createSection(
-                `Neighbors`, neighbors,
+                `Neighbors`, neighborRowElements,
                 true);
-            this.elements.neighbors.title.innerHTML = `Neighbors <span class="count">${neighbors.length}</span>`;
+            this.elements.neighbors.title.innerHTML = `Neighbors <span class="count">${neighborRowElements.length}</span>`;
         }
         this.elements.content.appendChild(this.elements.neighbors.container);
     }
@@ -859,6 +1028,100 @@ class SidebarConstructor {
         const edgeList = this._createSection('', [chipWrapContainer], false);
         this.elements.content.appendChild(edgeList.container);
     }
+
+    expandNode() {
+        const selectedNode = this.store.config.selectedGraphObject;
+        if (!selectedNode || !(selectedNode instanceof Node)) {
+            return;
+        }
+
+        // Don't show expand section in schema mode
+        if (this.store.config.viewMode === GraphConfig.ViewModes.SCHEMA) {
+            return;
+        }
+
+        // Create expand buttons container
+        const expandButtons = document.createElement('div');
+        expandButtons.className = 'section-content';
+
+        // Helper function to create expand buttons
+        const createExpandButton = (text, icon, onClick, isGeneral = false) => {
+            const button = document.createElement('button');
+            button.className = `expand-button ${isGeneral ? 'expand-button-general' : ''}`;
+            button.innerHTML = `
+                ${icon}
+                <span class="expand-button-text">${text}</span>
+                <svg class="expand-button-arrow" xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#5f6368">
+                    <path d="M530-481 332-679l43-43 241 241-241 241-43-43 198-198Z"/>
+                </svg>
+            `;
+
+            // Track loading state
+            let isLoading = false;
+
+            button.addEventListener('click', async () => {
+                if (isLoading) return; // Prevent multiple clicks while loading
+                
+                // Set loading state
+                isLoading = true;
+                button.classList.add('loading');
+                
+                try {
+                    // Call the expansion function
+                    selectedNode.fx = selectedNode.x;
+                    selectedNode.fy = selectedNode.y;
+                    await onClick();
+                } catch (error) {
+                    console.error('Error expanding node:', error);
+                } finally {
+                    // Reset loading state after a minimum duration to prevent flashing
+                    setTimeout(() => {
+                        isLoading = false;
+                        button.classList.remove('loading');
+                    }, 500);
+                }
+            });
+            
+            return button;
+        };
+
+        // Add "All incoming edges" button
+        expandButtons.appendChild(createExpandButton(
+            'All incoming edges',
+            this.incomingEdgeSvg,
+            () => this.store.requestNodeExpansion(selectedNode, Edge.Direction.INCOMING.description),
+            true
+        ));
+
+        // Add "All outgoing edges" button
+        expandButtons.appendChild(createExpandButton(
+            'All outgoing edges',
+            this.outgoingEdgeSvg,
+            () => this.store.requestNodeExpansion(selectedNode, Edge.Direction.OUTGOING.description),
+            true
+        ));
+
+        // Add a divider between general and specific edge options
+        const divider = document.createElement('div');
+        divider.className = 'expand-divider';
+        expandButtons.appendChild(divider);
+
+        // Add individual edge type buttons
+        const edgeTypes = this.store.getEdgeTypesOfNodeSorted(selectedNode);
+        edgeTypes.forEach(({label, direction}) => {
+            const icon = direction === Edge.Direction.INCOMING.description ? this.incomingEdgeSvg : this.outgoingEdgeSvg;
+            expandButtons.appendChild(createExpandButton(
+                label,
+                icon,
+                () => this.store.requestNodeExpansion(selectedNode, direction, label)
+            ));
+        });
+
+        // Create and add the section
+        const section = this._createSection('Expand Node', [expandButtons], true);
+        section.title.innerHTML = `Expand Node <span class="count">${2 + edgeTypes.length} options</span>`;
+        this.elements.content.appendChild(section.container);
+    }
 }
 
 class Sidebar {
@@ -873,6 +1136,18 @@ class Sidebar {
      * @type {HTMLElement}
      */
     mount;
+
+    /**
+     * @type {SidebarConstructor}
+     */
+    domConstructor;
+
+    /**
+     * Stores the collapse state of each section
+     * @type {Object.<string, boolean>}
+     * @private
+     */
+    _sectionCollapseState = {};
 
     constructor(inStore, inMount) {
         this.store = inStore;
@@ -896,7 +1171,7 @@ class Sidebar {
             sidebar.style.display = 'initial';
         }
 
-        new SidebarConstructor(this.store, sidebar);
+        this.domConstructor = new SidebarConstructor(this.store, sidebar, this._sectionCollapseState);
     }
 
     /**
@@ -908,9 +1183,15 @@ class Sidebar {
             throw Error('Store must be an instance of GraphStore');
         }
 
+        store.addEventListener(GraphStore.EventTypes.GRAPH_DATA_UPDATE,
+            (currentGraph, updates, config) => {
+                if (this.domConstructor) {
+                    this.domConstructor.refresh();
+                }
+            });
+
         store.addEventListener(GraphStore.EventTypes.VIEW_MODE_CHANGE,
             (viewMode, config) => {
-                this.neighbors = [];
                 this.selectedObject = config.selectedGraphObject;
 
                 // Clean up sidebar
@@ -926,20 +1207,7 @@ class Sidebar {
 
         store.addEventListener(GraphStore.EventTypes.SELECT_OBJECT,
             (object, config) => {
-                this.neighbors = [];
                 this.selectedObject = object;
-
-                if (object instanceof Node) {
-                    this.store.getNeighborsOfNode(object).forEach(neighbor => {
-                        this.neighbors.push(neighbor);
-                    });
-                }
-
-                if (object instanceof Edge) {
-                    [object.source, object.target].forEach(neighbor => {
-                        this.neighbors.push(neighbor);
-                    });
-                }
 
                 // Clean up sidebar
                 this.mount.innerHTML = '';
