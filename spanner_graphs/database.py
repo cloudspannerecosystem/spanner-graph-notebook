@@ -107,29 +107,33 @@ class SpannerDatabase:
         if not is_test_query:
             self.schema_json = self._get_schema_for_graph(query)
 
-        with self.database.snapshot() as snapshot:
-            params = None
-            if limit and limit > 0:
-                params = dict(limit=limit)
+        try:
+            with self.database.snapshot() as snapshot:
+                params = None
+                if limit and limit > 0:
+                    params = dict(limit=limit)
 
-            results = snapshot.execute_sql(query, params=params)
-            rows = list(results)
-            fields: List[StructType.Field] = results.fields
+                results = snapshot.execute_sql(query, params=params)
+                rows = list(results)
+                fields: List[StructType.Field] = results.fields
 
-            data = {field.name: [] for field in fields}
+                data = {field.name: [] for field in fields}
 
-            if len(fields) == 0:
-                return data, fields, rows
+                if len(fields) == 0:
+                    return data, fields, rows
 
-            for row in rows:
-                for field, value in zip(fields, row):
-                    if isinstance(value, JsonObject):
-                        # Handle JSON objects by properly deserializing them back into Python objects
-                        data[field.name].append(json.loads(value.serialize()))
-                    else:
-                        data[field.name].append(value)
+                for row in rows:
+                    for field, value in zip(fields, row):
+                        if isinstance(value, JsonObject):
+                            # Handle JSON objects by properly deserializing them back into Python objects
+                            data[field.name].append(json.loads(value.serialize()))
+                        else:
+                            data[field.name].append(value)
 
-            return data, fields, rows, self.schema_json
+                    return data, fields, rows, self.schema_json
+                
+        except Exception as e:
+            return {}, [], [], self.schema_json
 
 
 class MockSpannerResult:
