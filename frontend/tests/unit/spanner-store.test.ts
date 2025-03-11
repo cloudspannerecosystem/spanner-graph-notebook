@@ -799,8 +799,8 @@ describe('GraphStore', () => {
         });
 
         it('should handle null/undefined inputs', () => {
-            expect(store.getPropertyType(null, 'name')).toBeNull();
-            expect(store.getPropertyType(undefined, 'name')).toBeNull();
+            expect(store.getPropertyType(null, 'name')).toBeUndefined();
+            expect(store.getPropertyType(undefined, 'name')).toBeUndefined();
             expect(store.getPropertyType(userNode, null)).toBeNull();
             expect(store.getPropertyType(userNode, undefined)).toBeNull();
         });
@@ -829,6 +829,51 @@ describe('GraphStore', () => {
             const storeWithoutDeclarations = new GraphStore(configWithoutDeclarations);
             
             expect(storeWithoutDeclarations.getPropertyType(userNode, 'age')).toBeNull();
+        });
+
+        it('should return correct property type for an edge', () => {
+            // Create a test edge with the FOLLOWS label
+            const testEdge = new Edge({
+                identifier: 'edge1',
+                source_node_identifier: 'user1',
+                destination_node_identifier: 'user2',
+                labels: ['FOLLOWS']
+            });
+            
+            // Set source and destination nodes (required for proper edge handling)
+            testEdge.sourceNode = userNode;
+            testEdge.destinationNode = userNode;
+            
+            // Test getting property type for the edge
+            const activeType = store.getPropertyType(testEdge, 'active');
+            
+            // The 'active' property should be of type 'BOOL' as defined in the mock data
+            expect(activeType).toBe('BOOL');
+            
+            // Test with a non-existent property
+            const nonExistentType = store.getPropertyType(testEdge, 'nonexistent');
+            expect(nonExistentType).toBeNull();
+            
+            // Test with an edge that has a non-existent label
+            const invalidEdge = new Edge({
+                identifier: 'invalid-edge',
+                source_node_identifier: 'user1',
+                destination_node_identifier: 'user2',
+                labels: ['NON_EXISTENT_LABEL']
+            });
+            
+            invalidEdge.sourceNode = userNode;
+            invalidEdge.destinationNode = userNode;
+            
+            const invalidEdgePropertyType = store.getPropertyType(invalidEdge, 'active');
+            expect(invalidEdgePropertyType).toBeNull();
+        });
+        
+        it('should handle invalid graph objects', () => {
+            // Test with an object that is neither a Node nor an Edge
+            const invalidObject = { labels: ['User'] };
+            const propertyType = store.getPropertyType(invalidObject as any, 'name');
+            expect(propertyType).toBeUndefined();
         });
     });
 
