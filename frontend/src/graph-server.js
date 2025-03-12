@@ -13,8 +13,17 @@
  * limitations under the License.
  */
 
+function isColab() {
+    return typeof google !== 'undefined'
+}
+
 class GraphServer {
     isFetching = false;
+
+    /**
+     * Port number to connect to graph server. In colab environments, this is always undefined
+     * and not used (we use colab callbacks instead).
+     */
     port = 8195;
 
     endpoints = {
@@ -58,17 +67,21 @@ class GraphServer {
     }
 
     constructor(port, params) {
-        let numericalPort = port;
-        if (typeof numericalPort !== 'number') {
-            numericalPort = Number.parseInt(numericalPort);
+        if (isColab()) {
+            this.port = undefined;
+        } else {
+            let numericalPort = port;
+            if (typeof numericalPort !== 'number') {
+                numericalPort = Number.parseInt(numericalPort);
 
-            if (isNaN(numericalPort)) {
-                console.error('Graph Server was not given a numerical port', {port});
-                return;
+                if (isNaN(numericalPort)) {
+                    console.error('Graph Server was not given a numerical port', {port});
+                    return;
+                }
             }
-        }
 
-        this.port = numericalPort;
+            this.port = numericalPort;
+        }
         this.params = params
     }
 
@@ -122,7 +135,7 @@ class GraphServer {
 
         this.isFetching = true;
 
-        if (typeof google !== 'undefined') {
+        if (isColab()) {
             return google.colab.kernel.invokeFunction('graph_visualization.NodeExpansion', [request, this.params])
                 .then(result => result.data['application/json'])
                 .finally(() => this.isFetching = false);
@@ -155,7 +168,7 @@ class GraphServer {
 
         this.isFetching = true;
 
-        if (typeof google !== 'undefined') {
+        if (isColab()) {
             return google.colab.kernel.invokeFunction('graph_visualization.Query', [], request)
                 .then(result => result.data['application/json'])
                 .finally(() => this.isFetching = false);
