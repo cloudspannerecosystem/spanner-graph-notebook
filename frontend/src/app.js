@@ -95,7 +95,7 @@ class SpannerApp {
 
                 this.loaderElement.classList.add('hidden');
 
-                if (error || !response) {
+                if (error && !response) {
                     if (!error) {
                         error = 'An error has occurred';
                     }
@@ -104,7 +104,7 @@ class SpannerApp {
                     this.errorElement.classList.remove('hidden');
                     return;
                 }
-
+                
                 const {
                     nodes,
                     edges,
@@ -192,6 +192,12 @@ class SpannerApp {
 
                 if (!nodes.length) {
                     this.store.setViewMode(GraphConfig.ViewModes.TABLE);
+                }
+                // If there is both error and response, show schema view
+                if (error && response){
+                    this.store.setViewMode(GraphConfig.ViewModes.SCHEMA);
+                    this.errorElement.textContent = error;
+                    this.errorElement.classList.remove('hidden'); 
                 }
             });
     }
@@ -311,7 +317,7 @@ class SpannerApp {
 
                 .error  {
                     position: absolute;
-                    top: 20px;
+                    bottom: 20px;
                     left: 20px;
                     right: 20px;
                     font-family: 'Google Sans', Roboto, Arial, sans-serif;
@@ -319,6 +325,7 @@ class SpannerApp {
                     z-index: 10;
                     display: flex;
                     align-items: center;
+                    white-space: pre-wrap;
                     
                     background-color: #f8d7da;
                     border: 1px solid #f5c6cb;
