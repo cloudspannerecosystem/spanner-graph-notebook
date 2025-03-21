@@ -638,31 +638,35 @@ class GraphStore {
     }
 
     /**
-     * Gets the type of a specific property for a node.
-     * @param {GraphNode} node - The node to get the property type from
+     * Gets the type of a specific property for a node or edge.
+     * @param {GraphNode|GraphEdge} graphObject - The object to get the property type from
      * @param {string} propertyName - The name of the property to get the type for
      * @returns {PropertyDeclarationType|null} The type of the property, or null if not found
      */
-    getPropertyType(node, propertyName) {
-        if (!this.config.schema || !this.config.schema.rawSchema || !node) {
+    getPropertyType(graphObject, propertyName) {
+        if (!this.config.schema || !this.config.schema.rawSchema) {
             return null;
+        }
+
+        if (!(graphObject instanceof Node) && !(graphObject instanceof Edge)) {
+            return;
         }
 
         const schema = this.config.schema.rawSchema;
 
-        // Find matching node tables for this node's labels
-        const matchingNodeTables = schema.nodeTables.filter(nodeTable => 
-            node.labels.some(label => nodeTable.labelNames.includes(label))
+        // Find matching node/edge tables for the labels
+        const matchingTables = schema[graphObject instanceof Node ? 'nodeTables' : 'edgeTables'].filter(table =>
+            graphObject.labels.some(label => table.labelNames.includes(label))
         );
 
-        if (matchingNodeTables.length === 0) {
-            console.error(`No matching node table found for labels: ${node.labels.join(', ')}`);
+        if (matchingTables.length === 0) {
+            console.error(`No matching table found for labels: ${graphObject.labels.join(', ')}`);
             return null;
         }
 
         // Look through all matching node tables for the property
-        for (const nodeTable of matchingNodeTables) {
-            const propertyDef = nodeTable.propertyDefinitions.find(
+        for (const table of matchingTables) {
+            const propertyDef = table.propertyDefinitions.find(
                 prop => prop.propertyDeclarationName === propertyName
             );
             
@@ -678,7 +682,7 @@ class GraphStore {
             }
         }
 
-        console.error(`Property ${propertyName} not found in any matching node tables for labels: ${node.labels.join(', ')}`);
+        console.error(`Property ${propertyName} not found in any matching tables for labels: ${graphObject.labels.join(', ')}`);
         return null;
     }
 }

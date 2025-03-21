@@ -831,14 +831,20 @@ class SidebarConstructor {
         }
 
         const createPropertyRow = (key, value) => {
-        const property = document.createElement('div');
+            /** @type PropertyDeclarationType */
+            const arrayPropertyType = 'ARRAY';
+            if (this.store.getPropertyType(selectedObject, key) === arrayPropertyType) {
+                value = `[${value}]`;
+            }
+
+            const property = document.createElement('div');
             property.className = 'property';
             property.innerHTML =
                 `<div class="property-label ${labelWrapClass}">${key}</div>
                 <div class="property-value ${valueWrapClass}">${value}</div>`;
 
             return property;
-        }
+        };
 
         const properties = Object
             .entries(selectedObject.properties)
