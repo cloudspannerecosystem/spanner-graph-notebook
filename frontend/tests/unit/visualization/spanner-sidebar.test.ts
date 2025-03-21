@@ -190,8 +190,15 @@ describe('SidebarConstructor', () => {
         it('should create a close button with correct attributes', () => {
             const closeButton = sidebarConstructor._initCloseButton();
             expect(closeButton.tagName).toBe('BUTTON');
-            expect(closeButton.className).toBe('close-btn');
+            expect(closeButton.className).toBe('close-btn circular-hover-effect');
             expect(closeButton.innerHTML).toContain('svg');
+        });
+
+        it('should create an overflow button with correct attributes', () => {
+            const overflowButton = sidebarConstructor._initOverflowButton();
+            expect(overflowButton.tagName).toBe('BUTTON');
+            expect(overflowButton.className).toBe('overflow-btn circular-hover-effect');
+            expect(overflowButton.innerHTML).toContain('svg');
         });
 
         it('should create a toggle button with correct attributes', () => {

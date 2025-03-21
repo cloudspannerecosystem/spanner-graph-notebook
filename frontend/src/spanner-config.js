@@ -158,6 +158,12 @@ class GraphConfig {
      */
     edgesOfNode = {}
 
+    /**
+     * Map of node labels to their selected property for display
+     * @type {Object.<string, string>}
+     */
+    keyProperties = {}
+
     nodeCount = 0;
     schemaNodeCount = 0;
 
@@ -321,6 +327,9 @@ class GraphConfig {
             }
             if (node instanceof GraphNode && node.instantiated) {
                 nodes[node.uid] = node;
+                if (Array.isArray(node.key_property_names) && node.key_property_names.length) {
+                    this.keyProperties[node.getLabels()] = node.key_property_names[0];
+                }
             } else {
                 node.instantiationErrorReason = 'Could not construct an instance of Node';
                 console.error(node.instantiationErrorReason, { nodeData, node });
