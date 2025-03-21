@@ -210,7 +210,17 @@ def execute_query(project: str, instance: str, database: str, query: str, mock =
     database = get_database_instance(project, instance, database, mock)
 
     try:
-        query_result, fields, rows, schema_json = database.execute_query(query)
+        query_result, fields, rows, schema_json, err = database.execute_query(query)
+        if len(rows) == 0: # if query returned an error
+            return {
+                "response": {
+                    "schema": schema_json,
+                    "query_result": query_result,
+                    "nodes": [],
+                    "edges": [],
+                },
+                "error": f"We've detected an error in your query. To help you troubleshoot, the graph schema's layout is shown above." + "\n\n" + f"Query error: \n{getattr(err, 'message', str(err))}"
+            }
         nodes, edges = get_nodes_edges(query_result, fields, schema_json)
         
         return {
