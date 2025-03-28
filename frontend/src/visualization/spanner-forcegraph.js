@@ -1117,8 +1117,12 @@ class GraphVisualization {
                         }
 
                         let label = node.getLabels();
-                        if (this.store.config.viewMode === GraphConfig.ViewModes.DEFAULT && node.identifiers.length > 0) {
-                            label += ` (${node.identifiers.join(', ')})`;
+                        let keyProperty = '';
+                        if (this.store.config.viewMode === GraphConfig.ViewModes.DEFAULT) {
+                            keyProperty = this.store.getKeyProperties(node);
+                            if (keyProperty.length) {
+                                label += ` (${keyProperty})`;
+                            }
                         }
 
                         // Draw the label's background
@@ -1170,7 +1174,7 @@ class GraphVisualization {
 
                             ctx.restore();
                         } else if (this.store.config.viewMode === GraphConfig.ViewModes.DEFAULT) {
-                            // "NodeType <b>(identifiers)</b>"
+                            // "NodeType <b>(key properties)</b>"
                             // requires two separate drawings
                             ctx.textAlign = 'left';
                             ctx.textBaseline = 'middle';
@@ -1193,8 +1197,8 @@ class GraphVisualization {
                             ctx.font = `${fontSize}px 'Google Sans', Roboto, Arial, sans-serif`;
                             ctx.fillText(prefixLabel, prefixLabelX, textVerticalOffset);
 
-                            // 5. Draw bold identifiers part right after
-                            const suffixLabel = `(${node.identifiers.join(', ')})`;
+                            // 5. Draw bold key properties right after
+                            const suffixLabel = `(${keyProperty})`;
                             const suffixLabelX = prefixLabelX + prefixRect.width;  // Start where previous text ended
                             ctx.font = `bold ${fontSize}px 'Google Sans', Roboto, Arial, sans-serif`;
                             ctx.fillText(suffixLabel, suffixLabelX, textVerticalOffset);
@@ -1453,59 +1457,8 @@ class GraphVisualization {
         // Prevent the default context menu
         event.preventDefault();
 
-        // Remove any existing context menus
-        const existingMenu = document.querySelector('.graph-context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-
-        const edgeButtons = this.store.getEdgeTypesOfNodeSorted(node).map(({label, direction}) => {
-           const directionSvg = direction === GraphEdge.Direction.INCOMING.description ? this.incomingEdgeSvg : this.outgoingEdgeSvg;
-
-           return `<div class="context-menu-item node-expand-edge" data-label="${label}" data-direction="${direction}">${directionSvg} ${label}</div>`;
-        });
-
-        const html = `
-            <div class="graph-context-menu">
-                <div class="context-menu-item node-expand-edge" data-direction="${GraphEdge.Direction.INCOMING.description}" data-label="">
-                    ${this.incomingEdgeSvg} All incoming edges
-                </div>
-                <div class="context-menu-item node-expand-edge" data-direction="${GraphEdge.Direction.OUTGOING.description}" data-label="">
-                    ${this.outgoingEdgeSvg} All outgoing edges
-                </div>
-                <div class="context-menu-divider"></div>
-                ${edgeButtons.join('')}
-            </div>
-        `;
-
-        // Create a container for the menu
-        const menuContainer = document.createElement('div');
-        menuContainer.innerHTML = html;
-
-        // Add the menu to the document body
-        document.body.appendChild(menuContainer.firstElementChild);
-
-        // Position the menu at the mouse coordinates
-        const menu = document.querySelector('.graph-context-menu');
-        menu.style.left = event.pageX + 'px';
-        menu.style.top = event.pageY + 'px';
-
-        // Add event listener to close menu when clicking outside
-        const closeMenu = (e) => {
-            if (!menu.contains(e.target)) {
-                menu.remove();
-                document.removeEventListener('click', closeMenu);
-            }
-        };
-
-        // Add click handlers directly to the menu
-        menu.addEventListener('click', (e) => {
-            const expandButton = e.target.closest('.node-expand-edge');
-            if (!expandButton) return;
-
-            const edgeLabel = expandButton.dataset.label;
-            const direction = expandButton.dataset.direction;
-
+        // Create menu using the store's method
+        const menu = this.store.createNodeExpansionMenu(node, (direction, edgeLabel) => {
             // Fix node position during expansion
             node.fx = node.x;
             node.fy = node.y;
@@ -1515,13 +1468,15 @@ class GraphVisualization {
             this.store.setSelectedObject(node);
             this.store.requestNodeExpansion(node, direction, edgeLabel);
 
-            menu.remove();
-            document.removeEventListener('click', closeMenu);
-
             this.showLoadingStateForNode(node);
         });
 
-        document.addEventListener('click', closeMenu);
+        // Position the menu at the mouse coordinates
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+
+        // Add the menu to the document body
+        document.body.appendChild(menu);
     }
 
     /**

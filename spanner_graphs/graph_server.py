@@ -295,6 +295,12 @@ class GraphServer:
             print("Spanner Graph Notebook shutting down...")
 
     @staticmethod
+    def set_port(port):
+        """Set a specific port for the server to use"""
+        GraphServer.port = port
+        GraphServer.url = f"{GraphServer.host}:{GraphServer.port}"
+
+    @staticmethod
     def get_ping():
         route = GraphServer.build_route(GraphServer.endpoints["get_ping"])
         response = requests.get(route)

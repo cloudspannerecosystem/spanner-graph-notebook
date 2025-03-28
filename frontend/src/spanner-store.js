@@ -86,6 +86,9 @@ import GraphObject from "./models/graph-object";
  */
 
 class GraphStore {
+    incomingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M320-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-100 0-170-70T80-480q0-100 70-170t170-70q90 0 156.5 57T557-520h323v80H557q-14 86-80.5 143T320-240Zm0-240Z"/></svg>`;
+    outgoingEdgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M640-320q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0 80q-90 0-156.5-57T403-440H80v-80h323q14-86 80.5-143T640-720q100 0 170 70t70 170q0 100-70 170t-170 70Zm0-240Z"/></svg>`;
+
     /**
      * The configuration that the graph store is based on.
      * @type {GraphConfig}
@@ -274,6 +277,35 @@ class GraphStore {
     }
 
     /**
+     * Get edges associated with a node.
+     * Edge are grouped by neighbor, and then sorted by incoming/outgoing.
+     * @param {Node} node - The node to get edges for.
+     * @returns {Array<Edge>} A sorted array of edges associated with the node.
+     */
+    getEdgesOfNodeSorted(node) {
+        return Array.from(this.getEdgesOfNode(node)).sort((a, b) => {
+            const neighborA = this.getNode(a.sourceUid === node.uid ? a.destinationUid : a.sourceUid);
+            const neighborB = this.getNode(b.sourceUid === node.uid ? b.destinationUid : b.sourceUid);
+
+            if (neighborA instanceof Node && neighborB instanceof Node) {
+                const labelCompare = neighborA.getLabels().localeCompare(neighborB.getLabels());
+                if (labelCompare !== 0) {
+                    return labelCompare;
+                }
+            }
+
+            const directionA = a.sourceUid === node.uid ? 'OUTGOING' : 'INCOMING';
+            const directionB = b.sourceUid === node.uid ? 'OUTGOING' : 'INCOMING';
+
+            if (directionA !== directionB) {
+                return directionA === 'INCOMING' ? -1 : 1;
+            }
+
+            return 0;
+        });
+    }
+
+    /**
      * Returns all edge types, sorted by:
      * - incoming, alphabetized
      * - outgoing, alphabetized
@@ -282,11 +314,11 @@ class GraphStore {
      */
     getEdgeTypesOfNodeSorted(node) {
         return this.getEdgeTypesOfNode(node).sort((a, b) => {
-           if (a.direction !== b.direction) {
-               return a.direction === 'INCOMING' ? -1 : 1;
-           }
+            if (a.direction !== b.direction) {
+                return a.direction === 'INCOMING' ? -1 : 1;
+            }
 
-           return a.label.localeCompare(b.label);
+            return a.label.localeCompare(b.label);
         });
     }
 
@@ -611,7 +643,7 @@ class GraphStore {
         if (!hasSelectedObject && edgeIsFocused) {
             return this.config.edgeDesign.focused;
         }
-        
+
         const isNeighbor = this.edgeIsConnectedToFocusedNode(edge) ||
             this.edgeIsConnectedToSelectedNode(edge);
         if (isNeighbor) {
@@ -637,6 +669,82 @@ class GraphStore {
             .forEach(callback => callback(node, direction, edgeLabel, properties, this.config));
     }
 
+    createNodeExpansionMenu(node, onItemSelected) {
+        // Remove any existing context menus
+        const existingMenu = document.querySelector('.graph-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+
+        // Create the menu element
+        const menu = document.createElement('div');
+        menu.className = 'graph-context-menu';
+
+        // Add the "All incoming edges" option
+        const incomingOption = document.createElement('div');
+        incomingOption.className = 'context-menu-item node-expand-edge';
+        incomingOption.dataset.direction = GraphEdge.Direction.INCOMING.description;
+        incomingOption.dataset.label = '';
+        incomingOption.innerHTML = `${this.incomingEdgeSvg} All incoming edges`;
+        menu.appendChild(incomingOption);
+
+        // Add the "All outgoing edges" option
+        const outgoingOption = document.createElement('div');
+        outgoingOption.className = 'context-menu-item node-expand-edge';
+        outgoingOption.dataset.direction = GraphEdge.Direction.OUTGOING.description;
+        outgoingOption.dataset.label = '';
+        outgoingOption.innerHTML = `${this.outgoingEdgeSvg} All outgoing edges`;
+        menu.appendChild(outgoingOption);
+
+        // Add divider
+        const divider = document.createElement('div');
+        divider.className = 'context-menu-divider';
+        menu.appendChild(divider);
+
+        // Add edge-specific options
+        this.getEdgeTypesOfNodeSorted(node).forEach(({label, direction}) => {
+            const directionSvg = direction === GraphEdge.Direction.INCOMING.description ?
+                this.incomingEdgeSvg : this.outgoingEdgeSvg;
+
+            const edgeOption = document.createElement('div');
+            edgeOption.className = 'context-menu-item node-expand-edge';
+            edgeOption.dataset.direction = direction;
+            edgeOption.dataset.label = label;
+            edgeOption.innerHTML = `${directionSvg} ${label}`;
+            menu.appendChild(edgeOption);
+        });
+
+        // Add click event listeners to menu items
+        menu.addEventListener('click', (e) => {
+            const expandButton = e.target.closest('.node-expand-edge');
+            if (!expandButton) return;
+
+            const edgeLabel = expandButton.dataset.label;
+            const direction = expandButton.dataset.direction;
+
+            // Call the callback with the selected option
+            if (onItemSelected) {
+                onItemSelected(direction, edgeLabel);
+                menu.remove();
+            }
+        });
+
+        // Track if this is the first click
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+
+        // Add the click event on the next frame so
+        // that the current click event doesn't trigger this
+        window.setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 0);
+        return menu;
+    }
+
     /**
      * Gets the type of a specific property for a node.
      * @param {GraphNode} node - The node to get the property type from
@@ -651,7 +759,7 @@ class GraphStore {
         const schema = this.config.schema.rawSchema;
 
         // Find matching node tables for this node's labels
-        const matchingNodeTables = schema.nodeTables.filter(nodeTable => 
+        const matchingNodeTables = schema.nodeTables.filter(nodeTable =>
             node.labels.some(label => nodeTable.labelNames.includes(label))
         );
 
@@ -665,13 +773,13 @@ class GraphStore {
             const propertyDef = nodeTable.propertyDefinitions.find(
                 prop => prop.propertyDeclarationName === propertyName
             );
-            
+
             if (propertyDef) {
                 // Find the property declaration to get its type
                 const propertyDecl = schema.propertyDeclarations.find(
                     decl => decl.name === propertyDef.propertyDeclarationName
                 );
-                
+
                 if (propertyDecl) {
                     return propertyDecl.type;
                 }
@@ -681,8 +789,22 @@ class GraphStore {
         console.error(`Property ${propertyName} not found in any matching node tables for labels: ${node.labels.join(', ')}`);
         return null;
     }
+
+    /**
+     * @param {GraphObject} graphObject
+     * @returns {String}
+     */
+    getKeyProperties(graphObject) {
+        if (graphObject instanceof GraphObject) {
+            const values = [];
+            for (const name of graphObject.key_property_names) {
+                values.push(graphObject.properties[name]);
+            }
+            return values.join(', ');
+        }
+
+        return '';
+    }
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = GraphStore;
-}
+export default GraphStore;

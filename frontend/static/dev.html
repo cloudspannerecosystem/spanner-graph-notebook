@@ -389,7 +389,7 @@ limitations under the License.
             pointer-events: none;
         }
     </style>
-    <script type="module" onload="initializeApp()" src="../dist/index.js"></script>
+    <script type="module" src="../src/index.js"></script>
 </head>
 <body>
     <div class="visualization-container">
@@ -456,8 +456,6 @@ LIMIT 50"></textarea>
     </div>
 
     <script>
-        const INJECTED_PORT = '{{PORT}}';
-
         function initializeApp() {
             const mount = document.querySelector('.mount-spanner-test');
             const project = document.getElementById('project').value;
@@ -477,7 +475,8 @@ LIMIT 50"></textarea>
                 project,
                 instance,
                 database,
-                query
+                query,
+                mock
             }));
 
             // Clear previous instance if it exists
@@ -495,7 +494,7 @@ LIMIT 50"></textarea>
 
             window.app = new SpannerApp({
                 id: 'spanner-test',
-                port: INJECTED_PORT,
+                port: 8975,
                 params: JSON.stringify(params),
                 mount: mount,
                 query: query
@@ -511,9 +510,8 @@ LIMIT 50"></textarea>
                 document.getElementById('instance').value = config.instance || 'my-instance';
                 document.getElementById('database').value = config.database || 'my-database';
                 document.getElementById('query').value = config.query || '';
+                document.getElementById('mock').checked = config.mock;
             }
-            // Always ensure mock is checked on initial load
-            document.getElementById('mock').checked = true;
         }
 
         function toggleCommandPalette() {
@@ -545,6 +543,7 @@ LIMIT 50"></textarea>
 
         // Load saved config but wait for SpannerApp to be available
         loadSavedConfig();
+        toggleCommandPalette();
     </script>
 </body>
 </html> 

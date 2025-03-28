@@ -20,7 +20,13 @@ class GraphObject {
      * The label of the Graph Object.
      * @type {string[]}
      */
-    labels =[];
+    labels = [];
+
+    /**
+     * GraphObject::labels concatenated into a string
+     * @type {string}
+     */
+    labelString = '';
 
     /**
      * A map of properties and their values describing the Graph Ebject.
@@ -72,6 +78,7 @@ class GraphObject {
         }
 
         this.labels = labels;
+        this.labelString = this.labels.join(' | ');
         this.properties = properties;
         this.key_property_names = key_property_names;
         this.uid = identifier;
@@ -82,7 +89,7 @@ class GraphObject {
      * @returns {string}
      */
     getLabels() {
-        return this.labels.join(' | ');
+        return this.labelString;
     }
 
     /**

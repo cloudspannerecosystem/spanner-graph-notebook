@@ -30,7 +30,8 @@ def get_nodes_edges(data: Dict[str, List[Any]], fields: List[StructType.Field], 
     schema_manager = SchemaManager(schema_json)
     nodes: List[Node] = []
     edges: List[Edge] = []
-    node_identifiers = set()  # Track unique node identifiers
+    node_identifiers = set()
+    edge_identifiers = set()
 
     # Process each column in the data
     for field in fields:
@@ -74,7 +75,9 @@ def get_nodes_edges(data: Dict[str, List[Any]], fields: List[StructType.Field], 
 
                 elif item["kind"] == "edge" and Edge.is_valid_edge_json(item):
                     edge = Edge.from_json(item)
-                    edges.append(edge)
+                    if edge.identifier not in edge_identifiers:
+                        edges.append(edge)
+                        edge_identifiers.add(edge.identifier)
 
     # Create placeholder nodes for nodes that were not returned
     # from the query but are identified in the edges
