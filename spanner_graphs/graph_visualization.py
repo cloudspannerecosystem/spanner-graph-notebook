@@ -17,7 +17,6 @@
 import base64
 import uuid
 import os
-import re
 
 from jinja2 import Template
 
@@ -44,40 +43,6 @@ def _load_image(path: list[str]) -> str:
     else:
         with open(file_path, 'rb') as file:
             return base64.b64decode(file.read()).decode('utf-8')
-        
-def escape_newlines_within_query(query: str) -> str:
-    """
-    Replaces unescaped single newline characters within the query string
-    with escaped newline sequences '\\\\n'.
-    It ignores newlines that are already part of an escaped sequence
-    or likely intended for formatting at the start/end.
-    """
-    def replace_newline(match):
-        return '\\\\n'
-
-    # This regex looks for a newline character that is NOT preceded by a backslash
-    # and is NOT at the very beginning or end of a non-empty query.
-    pattern = r"(?<!\\)\\n"
-
-    # We'll add conditions to avoid replacing leading/trailing newlines if the query has content
-    processed_query = query
-
-    if query.strip():  # Check if the query has non-whitespace content
-        if processed_query.startswith('\n'):
-            processed_query = processed_query[1:]
-        if processed_query.endswith('\n'):
-            processed_query = processed_query[:-1]
-
-    escaped_query = re.sub(pattern, replace_newline, processed_query)
-
-    # Add back the leading/trailing newlines if they were there
-    if query.startswith('\n') and query.strip():
-        escaped_query = '\n' + escaped_query
-    if query.endswith('\n') and query.strip():
-        escaped_query = escaped_query + '\n'
-
-    return escaped_query
-
 
 def generate_visualization_html(query: str, port: int, params: str):
         # Get the directory of the current file (magics.py)
@@ -107,12 +72,12 @@ def generate_visualization_html(query: str, port: int, params: str):
 
         # Create a Jinja2 template
         template = Template(template_content)
-        escaped_query = escape_newlines_within_query(query)
+
         # Render the template with the graph data and JavaScript content
         html_content = template.render(
             graph_background_image=graph_background_image,
             bundled_js_code=bundled_js_code,  # Pass the actual JS code instead of the path
-            query=escaped_query,
+            query=query,
             params=params,
             port=port,
             id=uuid.uuid4().hex # Prevent html/js selector collisions between cells
