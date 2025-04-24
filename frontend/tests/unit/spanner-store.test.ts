@@ -118,17 +118,6 @@ describe('GraphStore', () => {
             baseTableName: 'created'
         };
 
-        const nodeStaticLabelList = [
-            new Set(['User']),
-            new Set(['Post']),
-        ];
-        const nodeStaticLabelSets = new Set(nodeStaticLabelList);
-        const edgeStaticLabelList = [
-            new Set(['FOLLOWS']),
-            new Set(['CREATED']),
-        ]
-        const edgeStaticLabelSets = new Set(edgeStaticLabelList)
-
         const mockSchemaData = {
             catalog: 'test',
             schema: 'test',
@@ -137,8 +126,6 @@ describe('GraphStore', () => {
             nodeTables: [mockNodeTable, mockNodeTable2],
             edgeTables: [mockEdgeTable, mockEdgeTable2],
             propertyDeclarations: mockPropertyDeclarations,
-            _allNodeTableStaticLabelSets: nodeStaticLabelSets,
-            _allEdgeTableStaticLabelSets: edgeStaticLabelSets,
         };
 
         mockConfig = new GraphConfig({

@@ -234,8 +234,6 @@ class GraphConfig {
      * Assigns colors for node labels to the existing color map
      */
     assignColors() {
-        // const colorPalette = this.colorPalette.map(color => color);
-
         const labels = new Set();
 
         for (const uid of Object.keys(this.nodes)) {

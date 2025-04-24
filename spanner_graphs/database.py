@@ -31,7 +31,7 @@ import pydata_google_auth
 
 def _get_default_credentials_with_project():
     return pydata_google_auth.default(
-        scopes=["https://www.googleapis.com/auth/cloud-platform"], use_local_webserver=True)
+        scopes=["https://www.googleapis.com/auth/cloud-platform"], use_local_webserver=False)
 
 class SpannerDatabase:
     """The spanner class holding the database connection"""
