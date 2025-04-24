@@ -38,6 +38,8 @@ class Schema {
      * @property {string} baseSchemaName
      * @property {string} baseTableName
      * @property {EdgeDestinationNode} destinationNodeTable
+     * @property {string} [dynamicLabelExpr] - Optional SQL expression for dynamic node labels.
+     * @property {string} [dynamicPropertyExpr] - Optional SQL expression for dynamic node properties (JSON).
      * @property {Array<string>} keyColumns
      * @property {string} kind
      * @property {Array<string>} labelNames
@@ -51,6 +53,8 @@ class Schema {
      * @property {string} baseCatalogName
      * @property {string} baseSchemaName
      * @property {string} baseTableName
+     * @property {string} [dynamicLabelExpr] - Optional SQL expression for dynamic node labels.
+     * @property {string} [dynamicPropertyExpr] - Optional SQL expression for dynamic node properties (JSON).
      * @property {Array<string>} keyColumns
      * @property {string} kind
      * @property {Array<string>} labelNames
@@ -108,6 +112,22 @@ class Schema {
     rawSchema;
 
     /**
+     * Pre-calculated set of static label sets from all node table definitions.
+     * Each inner Set contains the `labelNames` for a node table.
+     * @type {Set<Set<string>>}
+     * @private
+     */
+    _allNodeTableStaticLabelSets = new Set();
+
+    /**
+     * Pre-calculated set of static label sets from all edge table definitions.
+     * Each inner Set contains the `labelNames` for an edge table.
+     * @type {Set<Set<string>>}
+     * @private
+     */
+    _allEdgeTableStaticLabelSets = new Set();
+
+    /**
      * @param {RawSchema} rawSchemaObject
      */
     constructor(rawSchemaObject) {
@@ -128,6 +148,71 @@ class Schema {
         if (!this.rawSchema.propertyDeclarations || !Array.isArray(this.rawSchema.propertyDeclarations)) {
             this.rawSchema.propertyDeclarations = [];
         }
+        this._precalculateDynamicLabelSets();
+    }
+
+   /**
+     * Pre-calculates sets of static labels for tables using dynamic labeling.
+     * This is called internally by the constructor.
+     * @private
+     */
+   _precalculateDynamicLabelSets() {
+       this._allNodeTableStaticLabelSets = new Set();
+       this._allEdgeTableStaticLabelSets = new Set();
+       
+       // Process Node Tables
+       (this.rawSchema.nodeTables || []).forEach(table => {
+           // Collect labelNames if it's a valid array and non-empty
+           if (Array.isArray(table.labelNames) && table.labelNames.length > 0) {
+               this._allNodeTableStaticLabelSets.add(new Set(table.labelNames));
+            }
+        });
+
+        // Process Edge Tables
+        (this.rawSchema.edgeTables || []).forEach(table => {
+             // Collect labelNames if it's a valid array and non-empty
+             if (Array.isArray(table.labelNames) && table.labelNames.length > 0) {
+                 this._allEdgeTableStaticLabelSets.add(new Set(table.labelNames));
+            }
+        });
+    }
+
+    /**
+     * Returns the pre-calculated set of static label sets from all node table definitions.
+     * @returns {Set<Set<string>>} A Set of Sets, where each inner Set contains static string labels.
+     */
+    getAllNodeTableStaticLabelSets() {
+        return this._allNodeTableStaticLabelSets;
+    }
+
+    /**
+     * Returns the pre-calculated set of static label sets from all edge table definitions.
+     * @returns {Set<Set<string>>} A Set of Sets, where each inner Set contains static string labels.
+     */
+    getAllEdgeTableStaticLabelSets() {
+        return this._allEdgeTableStaticLabelSets;
+    }
+
+    /**
+     * @returns {boolean} True if there is a dynamic label node table.
+     */
+    containsDynamicLabelNode() {
+        return (this.rawSchema.nodeTables || []).some(table => 
+            table.dynamicLabelExpr &&
+            typeof table.dynamicLabelExpr === "string" &&
+            table.dynamicLabelExpr.length > 0
+        );
+    }
+
+    /**
+     * @returns {boolean} True if there is a dynamic label edge table.
+     */
+    containsDynamicLabelEdge() {
+        return (this.rawSchema.edgeTables || []).some(table => 
+            table.dynamicLabelExpr &&
+            typeof table.dynamicLabelExpr === "string" &&
+            table.dynamicLabelExpr.length > 0
+        );
     }
 
     /**

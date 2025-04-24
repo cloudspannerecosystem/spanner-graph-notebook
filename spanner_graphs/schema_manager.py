@@ -22,6 +22,10 @@ class SchemaManager:
         self.schema_dict = schema_json or {}
         self.node_label_to_property_names = self._build_node_mappings()
         self.unique_node_labels = self._find_unique_node_labels()
+        # TODO: this logic can be improved after element_definition_name
+        # is returned in JSON results for node.
+        self.dynamic_node = False
+        self._determine_dynamic_node()
 
     def _find_unique_node_labels(self) -> Set[str]:
         label_count = {}
@@ -31,6 +35,10 @@ class SchemaManager:
                 label = labelNames[0]
                 label_count[label] = label_count.get(label, 0) + 1
         return { label for label, count in label_count.items() if count == 1}
+
+    def _determine_dynamic_node(self):
+        for node_table in self.schema_dict.get('nodeTables', []):
+            self.dynamic_node = len(node_table.get('dynamicLabelExpr', "")) != 0    
 
     def _build_node_mappings(self) -> Dict[str, List[str]]:
         node_label_to_property_names = {}
@@ -67,6 +75,10 @@ class SchemaManager:
         for node_table in self.schema_dict.get('nodeTables', []):
             label_names = node_table.get('labelNames', [])
             key_columns = node_table.get('keyColumns', [])
+            # TODO: this logic can be improved after element_definition_name
+            # is returned in JSON results for node.
+            if self.dynamic_node and set(label_names).issubset(set(sorted_node_labels)):
+                return key_columns
             
             if (len(label_names) == len(sorted_node_labels) and 
                 sorted(label_names) == sorted_node_labels and

@@ -211,7 +211,7 @@ def execute_query(project: str, instance: str, database: str, query: str, mock =
 
     try:
         query_result, fields, rows, schema_json, err = database.execute_query(query)
-        if len(rows) == 0 : # if query returned an error
+        if len(rows) == 0 and err : # if query returned an error
             if schema_json: # if the schema exists
                 return {
                     "response": {

@@ -80,8 +80,8 @@ class GraphEdge extends GraphObject {
      * @param {EdgeData} params
      */
     constructor(params) {
-        const {source_node_identifier, destination_node_identifier, labels, properties, title, identifier} = params;
-        super({labels, title, properties, identifier});
+        const {source_node_identifier, destination_node_identifier, labels, properties, title, identifier, containsDynamicLabelElement, allSchemaStaticLabelSets} = params;
+        super({labels, title, properties, identifier, containsDynamicLabelElement, allSchemaStaticLabelSets});
 
         if (!this._validUid(source_node_identifier) || !this._validUid(destination_node_identifier)) {
             this.instantiationErrorReason = 'Edge destination or source invalid';

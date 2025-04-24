@@ -90,10 +90,39 @@ class GraphConfig {
     colorScheme = GraphConfig.ColorScheme.NEIGHBORHOOD;
 
     colorPalette = [
-        '#1A73E8', '#E52592', '#12A4AF', '#F4511E',
-        '#9334E6', '#689F38', '#3949AB', '#546E7A',
-        '#EF6C00', '#D93025', '#1E8E3E', '#039BE5'
-    ];
+        '#1A73E8',
+        '#E52592',
+        '#12A4AF',
+        '#F4511E',
+        '#9334E6',
+        '#689F38',
+        '#3949AB',
+        '#546E7A',
+        '#EF6C00',
+        '#D93025',
+        '#1E8E3E',
+        '#039BE5',
+        '#4682B4',
+        '#F0E68C',
+        '#00FFFF',
+        '#FFB6C1',
+        '#E6E6FA',
+        '#7B68EE',
+        '#CD853F',
+        '#BDB76B',
+        '#40E0D0',
+        '#708090',
+        '#DA70D6',
+        '#32CD32',
+        '#8B008B',
+        '#B0E0E6',
+        '#FF7F50',
+        '#A0522D',
+        '#6B8E23',
+        '#DC143C',
+        '#FFD700',
+        '#DB7093',
+    ]
 
     // [label: string]: colorString
     nodeColors = {};
@@ -181,10 +210,10 @@ class GraphConfig {
      * @param {RawSchema} config.schemaData - Raw schema data from Spanner
      */
     constructor({ nodesData, edgesData, colorPalette, colorScheme, rowsData, schemaData, queryResult}) {
+        this.parseSchema(schemaData);
         this.nodes = this.parseNodes(nodesData);
         this.nodeCount = Object.keys(this.nodes).length;
         this.edges = this.parseEdges(edgesData);
-        this.parseSchema(schemaData);
 
         this.nodeColors = {};
         this.assignColors();
@@ -205,7 +234,7 @@ class GraphConfig {
      * Assigns colors for node labels to the existing color map
      */
     assignColors() {
-        const colorPalette = this.colorPalette.map(color => color);
+        // const colorPalette = this.colorPalette.map(color => color);
 
         const labels = new Set();
 
@@ -228,7 +257,7 @@ class GraphConfig {
         }
 
         for (const label of labels) {
-            if (colorPalette.length === 0) {
+            if (this.colorPalette.length === 0) {
                 console.error('Node labels exceed the color palette. Assigning default color.');
                 continue;
             }
@@ -239,7 +268,7 @@ class GraphConfig {
             }
 
             if (!this.nodeColors[label]) {
-                this.nodeColors[label] = colorPalette.shift();
+                this.nodeColors[label] = this.colorPalette.shift();
             }
         }
     }
@@ -313,14 +342,17 @@ class GraphConfig {
 
         /** @type {NodeMap} */
         const nodes = {};
+        const allSchemaStaticLabelSets = this.schema.getAllNodeTableStaticLabelSets();
+        const containsDynamicLabelElement = this.schema.containsDynamicLabelNode();
         nodesData.forEach(nodeData => {
             if (!(nodeData instanceof Object)) {
                 console.error('Node data is not an object', nodeData);
                 return;
             }
+            const fullNodeData = { ...nodeData, containsDynamicLabelElement, allSchemaStaticLabelSets };
 
             // Try to create a Node
-            const node = new GraphNode(nodeData);
+            const node = new GraphNode(fullNodeData);
             if (!node || !node.instantiated) {
                 console.error('Unable to instantiate node', node.instantiationErrorReason);
                 return;
@@ -332,7 +364,7 @@ class GraphConfig {
                 }
             } else {
                 node.instantiationErrorReason = 'Could not construct an instance of Node';
-                console.error(node.instantiationErrorReason, { nodeData, node });
+                console.error(node.instantiationErrorReason, { fullNodeData, node });
             }
         });
 
@@ -353,14 +385,17 @@ class GraphConfig {
 
         /** @type {EdgeMap} */
         const edges = {}
+        const allSchemaStaticLabelSets = this.schema.getAllEdgeTableStaticLabelSets();
+        const containsDynamicLabelElement = this.schema.containsDynamicLabelEdge();
         edgesData.forEach(edgeData => {
             if (!(edgeData instanceof Object)) {
                 console.error('Edge data is not an object', edgeData);
                 return;
             }
+            const fullEdgeData = { ...edgeData, containsDynamicLabelElement, allSchemaStaticLabelSets };
 
             // Try to create an Edge
-            const edge = new GraphEdge(edgeData);
+            const edge = new GraphEdge(fullEdgeData);
             if (!edge || !edge.instantiated) {
                 console.error('Unable to instantiate edge', edge.instantiationErrorReason);
                 return;
@@ -372,7 +407,7 @@ class GraphConfig {
                 this._updateEdgeIndices(edge);
             } else {
                 edge.instantiationErrorReason = 'Could not construct an instance of Edge';
-                console.error(edge.instantiationErrorReason, { edgeData, edge });
+                console.error(edge.instantiationErrorReason, { fullEdgeData, edge });
             }
         });
 

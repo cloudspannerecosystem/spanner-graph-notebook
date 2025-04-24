@@ -3,7 +3,7 @@
   "source": "src/index.js",
   "scripts": {
     "test": "SUPRESS_LOGS=true npm run test:unit",
-    "test:unit": "TEST_TYPE=unit SUPRESS_LOGS=true jest",
+    "test:unit": "TEST_TYPE=unit jest",
     "test:visual": "TEST_TYPE=visual SUPRESS_LOGS=true jest --runInBand --detectOpenHandles --forceExit",
     "test:serve-content": "node tests/serve-content.js",
     "build": "parcel build --dist-dir dist",
@@ -13,6 +13,8 @@
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-typescript": "^7.26.0",
+    "@parcel/core": "^2.14.4",
+    "@parcel/transformer-js": "^2.14.4",
     "@parcel/transformer-sass": "^2.10.3",
     "@types/expect-puppeteer": "^5.0.6",
     "@types/jest": "^29.5.14",

@@ -64,6 +64,7 @@ class GraphNode extends GraphObject {
      * @property {string} color
      * @property {string} identifier
      * @property {bool} intermediate
+     * @property {Set<Set<string>>} allSchemaStaticLabelSets - A set of static label sets from all node table definitions in the schema.
      */
 
     /**
@@ -71,8 +72,8 @@ class GraphNode extends GraphObject {
     * @param {NodeData} params
     */
     constructor(params) {
-        const { labels, title, properties, value, key_property_names, identifier, intermediate } = params;
-        super({ labels, title, properties, key_property_names, identifier });
+        const { labels, title, properties, value, key_property_names, identifier, intermediate, containsDynamicLabelElement, allSchemaStaticLabelSets} = params;
+        super({ labels, title, properties, key_property_names, identifier, containsDynamicLabelElement, allSchemaStaticLabelSets});
 
         this.value = value;
         this.instantiated = true;
