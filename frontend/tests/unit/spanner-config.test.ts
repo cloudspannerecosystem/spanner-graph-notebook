@@ -235,7 +235,6 @@ describe('GraphConfig', () => {
                 schemaData: null
             });
 
-            expect(config.schema).toBeNull();
             expect(Object.keys(config.schemaNodes).length).toBe(0);
             expect(Object.keys(config.schemaEdges).length).toBe(0);
         });

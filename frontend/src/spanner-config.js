@@ -280,6 +280,7 @@ class GraphConfig {
      */
     parseSchema(schemaData) {
         if (!(schemaData instanceof Object)) {
+            this.schema = new Schema({});
             return;
         }
 
