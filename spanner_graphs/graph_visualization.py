@@ -48,7 +48,7 @@ def generate_visualization_html(query: str, port: int, params: str):
         # Get the directory of the current file (magics.py)
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Go up directories until we find the 'templates' folder
+        # Go up directories until we find the 'frontend' folder
         search_dir = current_dir
         while 'frontend' not in os.listdir(search_dir):
             parent = os.path.dirname(search_dir)
