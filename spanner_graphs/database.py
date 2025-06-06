@@ -18,7 +18,7 @@ via snapshot queries.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, NamedTuple
 import json
 import os
 import csv
@@ -28,6 +28,19 @@ from google.cloud.spanner_v1 import JsonObject
 from google.api_core.client_options import ClientOptions
 from google.cloud.spanner_v1.types import StructType, TypeCode, Type
 import pydata_google_auth
+
+class SpannerQueryResult(NamedTuple):
+    # A dict where each key is a field name returned in the query and the list
+    # contains all items of the same type found for the given field
+    data: Dict[str, List[Any]]
+    # A list representing the fields in the result set.
+    fields: List[Any]
+    # A list of rows as returned by the query execution.
+    rows: List[Any]
+    # An optional field to return the schema as JSON
+    schema_json: Any | None
+    # The error message if any
+    error: Exception | None
 
 def _get_default_credentials_with_project():
     return pydata_google_auth.default(
@@ -87,7 +100,7 @@ class SpannerDatabase:
         query: str,
         limit: int = None,
         is_test_query: bool = False,
-    ):
+    ) -> SpannerQueryResult:
         """
         This method executes the provided `query`
 
@@ -96,13 +109,7 @@ class SpannerDatabase:
             limit: An optional limit for the number of rows to return
 
         Returns:
-            A tuple containing:
-            - Dict[str, List[Any]]: A dict where each key is a field name
-            returned in the query and the list contains all items of the same
-            type found for the given field.
-            - A list of StructType.Fields representing the fields in the result set.
-            - A list of rows as returned by the query execution.
-            - The error message if any.
+            A SpannerQueryResult tuple
         """
         self.schema_json = None
         if not is_test_query:
@@ -131,9 +138,14 @@ class SpannerDatabase:
                         data[field.name].append(json.loads(value.serialize()))
                     else:
                         data[field.name].append(value)
+            return SpannerQueryResult(
+                data=data,
+                fields=fields,
+                rows=rows,
+                schema_json=self.schema_json,
+                error=None
+            )
 
-            return data, fields, rows, self.schema_json, None
-                
 class MockSpannerResult:
 
     def __init__(self, file_path: str):
@@ -180,7 +192,7 @@ class MockSpannerDatabase:
         self,
         _: str,
         limit: int = 5
-    ) -> Tuple[Dict[str, List[Any]], List[StructType.Field], List, str]:
+    ) -> SpannerQueryResult:
         """Mock execution of query"""
 
         # Before the actual query we fetch the schema as well
@@ -201,7 +213,13 @@ class MockSpannerDatabase:
             for field, value in zip(fields, row):
                 data[field.name].append(value)
 
-        return data, fields, rows, self.schema_json, None
+        return SpannerQueryResult(
+            data=data,
+            fields=fields,
+            rows=rows,
+            schema_json=self.schema_json,
+            error=None
+        )
 
 
 database_instances: dict[str, SpannerDatabase | MockSpannerDatabase] = {
