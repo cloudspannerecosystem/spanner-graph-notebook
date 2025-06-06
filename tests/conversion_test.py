@@ -38,10 +38,10 @@ class TestConversion(unittest.TestCase):
         """
         # Get data from mock database
         mock_db = MockSpannerDatabase()
-        data, fields, _, schema_json, _ = mock_db.execute_query("")
+        query_result = mock_db.execute_query("")
 
         # Convert data to nodes and edges
-        nodes, edges = get_nodes_edges(data, fields)
+        nodes, edges = get_nodes_edges(query_result.data, query_result.fields)
 
         # Verify we got some nodes and edges
         self.assertTrue(len(nodes) > 0, "Should have at least one node")
