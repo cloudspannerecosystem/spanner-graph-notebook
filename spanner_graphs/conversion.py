@@ -23,10 +23,11 @@ import json
 
 from google.cloud.spanner_v1.types import TypeCode, StructType
 
+from spanner_graphs.database import SpannerFieldInfo
 from spanner_graphs.graph_entities import Node, Edge
 from spanner_graphs.schema_manager import SchemaManager
 
-def get_nodes_edges(data: Dict[str, List[Any]], fields: List[StructType.Field], schema_json: dict = None) -> Tuple[List[Node], List[Edge]]:
+def get_nodes_edges(data: Dict[str, List[Any]], fields: List[SpannerFieldInfo], schema_json: dict = None) -> Tuple[List[Node], List[Edge]]:
     schema_manager = SchemaManager(schema_json)
     nodes: List[Node] = []
     edges: List[Edge] = []
@@ -37,15 +38,15 @@ def get_nodes_edges(data: Dict[str, List[Any]], fields: List[StructType.Field], 
     for field in fields:
         column_name = field.name
         column_data = data[column_name]
-        
+
         # Only process JSON and Array of JSON types
-        if field.type_.code not in [TypeCode.JSON, TypeCode.ARRAY]:
+        if field.typename not in ["JSON", "ARRAY"]:
             continue
 
         # Process each value in the column
         for value in column_data:
             items_to_process = []
-            
+
             # Handle both single JSON and arrays of JSON
             if isinstance(value, list):
                 items_to_process.extend(value)
