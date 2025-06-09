@@ -23,7 +23,7 @@ import json
 from google.cloud.spanner_v1.types import StructType, Type, TypeCode
 
 from spanner_graphs.conversion import get_nodes_edges
-from spanner_graphs.database import MockSpannerDatabase
+from spanner_graphs.database import SpannerFieldInfo, MockSpannerDatabase
 
 
 class TestConversion(unittest.TestCase):
@@ -103,9 +103,9 @@ class TestConversion(unittest.TestCase):
         }
 
         # Create a mock field for the column
-        field = StructType.Field(
+        field = SpannerFieldInfo(
             name="column1",
-            type_=Type(code=TypeCode.JSON)
+            typename="JSON"
         )
 
         # Convert data to nodes and edges
@@ -165,9 +165,9 @@ class TestConversion(unittest.TestCase):
         }
 
         # Create a mock field for the column
-        field = StructType.Field(
+        field = SpannerFieldInfo(
             name="column1",
-            type_=Type(code=TypeCode.JSON)
+            typename="JSON"
         )
 
         # Convert data to nodes and edges
@@ -211,9 +211,9 @@ class TestConversion(unittest.TestCase):
         }
 
         # Create a mock field for the column
-        field = StructType.Field(
+        field = SpannerFieldInfo(
             name="column1",
-            type_=Type(code=TypeCode.JSON)
+            typename="JSON"
         )
 
         # Convert data to nodes and edges
