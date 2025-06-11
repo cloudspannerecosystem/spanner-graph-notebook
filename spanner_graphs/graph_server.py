@@ -25,7 +25,7 @@ import atexit
 from google.cloud.spanner_v1 import TypeCode
 
 from spanner_graphs.conversion import get_nodes_edges
-from spanner_graphs.database import get_database_instance
+from spanner_graphs.exec_env import get_database_instance
 
 
 # Mapping of string types from frontend to Spanner TypeCode enum values
