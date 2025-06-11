@@ -25,11 +25,6 @@ import os
 import csv
 
 from dataclasses import dataclass
-from google.cloud import spanner
-from google.cloud.spanner_v1 import JsonObject
-from google.api_core.client_options import ClientOptions
-from google.cloud.spanner_v1.types import StructType, TypeCode, Type
-import pydata_google_auth
 
 class SpannerQueryResult(NamedTuple):
     # A dict where each key is a field name returned in the query and the list
@@ -70,28 +65,6 @@ class SpannerFieldInfo:
     name: str
     typename: str
 
-def get_as_field_info_list(fields: List[StructType.Field]) -> List[SpannerFieldInfo]:
-  """Converts a list of StructType.Field to a list of SpannerFieldInfo."""
-  return [SpannerFieldInfo(name=field.name, typename=field.type_.code.name) for field in fields]
-
-
-# Global dict of database instances created in a single session
-database_instances: dict[str, SpannerDatabase | MockSpannerDatabase] = {}
-
-def get_database_instance(project: str, instance: str, database: str, mock = False) -> SpannerDatabase:
-    if mock:
-        return MockSpannerDatabase()
-
-    key = f"{project}_{instance}_{database}"
-    db = database_instances.get(key)
-
-    # Currently, we only create and return CloudSpannerDatabase instances. In the future, different
-    # implementations could be introduced.
-    if not db:
-        db = CloudSpannerDatabase(project, instance, database)
-        database_instances[key] = db
-
-    return db
 
 class MockSpannerResult:
 

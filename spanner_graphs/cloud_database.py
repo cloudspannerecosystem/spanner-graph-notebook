@@ -23,14 +23,18 @@ from typing import Any, Dict, List, Tuple
 from google.cloud import spanner
 from google.cloud.spanner_v1 import JsonObject
 from google.api_core.client_options import ClientOptions
-from google.cloud.spanner_v1.types import StructType, Type
+from google.cloud.spanner_v1.types import StructType, Type, TypeCode
 import pydata_google_auth
 
-from spanner_graphs.database import SpannerDatabase, MockSpannerDatabase, SpannerQueryResult, SpannerFieldInfo, get_as_field_info_list
+from spanner_graphs.database import SpannerDatabase, MockSpannerDatabase, SpannerQueryResult, SpannerFieldInfo
 
 def _get_default_credentials_with_project():
     return pydata_google_auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"], use_local_webserver=False)
+
+def get_as_field_info_list(fields: List[StructType.Field]) -> List[SpannerFieldInfo]:
+  """Converts a list of StructType.Field to a list of SpannerFieldInfo."""
+  return [SpannerFieldInfo(name=field.name, typename=TypeCode(field.type_.code).name) for field in fields]
 
 class CloudSpannerDatabase(SpannerDatabase):
     """Concrete implementation for Spanner database on the cloud."""

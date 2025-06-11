@@ -33,7 +33,7 @@ import ipywidgets as widgets
 from ipywidgets import interact
 from jinja2 import Template
 
-from spanner_graphs.database import get_database_instance
+from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.graph_server import (
     GraphServer, execute_query, execute_node_expansion,
     validate_node_expansion_request
