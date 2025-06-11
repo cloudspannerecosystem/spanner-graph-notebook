@@ -33,7 +33,7 @@ import ipywidgets as widgets
 from ipywidgets import interact
 from jinja2 import Template
 
-from spanner_graphs.database import get_database_instance
+from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.graph_server import (
     GraphServer, execute_query, execute_node_expansion,
     validate_node_expansion_request
@@ -94,7 +94,7 @@ def receive_query_request(query: str, params: str):
 
 def receive_node_expansion_request(request: dict, params_str: str):
     """Handle node expansion requests in Google Colab environment
-    
+
     Args:
         request: A dictionary containing node expansion details including:
             - uid: str - Unique identifier of the node to expand
@@ -108,7 +108,7 @@ def receive_node_expansion_request(request: dict, params_str: str):
             - database: str - Spanner database ID
             - graph: str - Graph name
             - mock: bool - Whether to use mock data
-    
+
     Returns:
         JSON: A JSON-serialized response containing either:
             - The query results with nodes and edges

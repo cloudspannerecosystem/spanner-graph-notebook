@@ -17,7 +17,7 @@ import socketserver
 import json
 import threading
 from enum import Enum
-from typing import Union
+from typing import Union, Dict, Any
 
 import requests
 import portpicker
@@ -25,7 +25,7 @@ import atexit
 from google.cloud.spanner_v1 import TypeCode
 
 from spanner_graphs.conversion import get_nodes_edges
-from spanner_graphs.database import get_database_instance
+from spanner_graphs.exec_env import get_database_instance
 
 
 # Mapping of string types from frontend to Spanner TypeCode enum values
@@ -56,27 +56,27 @@ class EdgeDirection(Enum):
 def validate_property_type(property_type: str) -> TypeCode:
     """
     Validates and converts a property type string to a Spanner TypeCode.
-    
+
     Args:
         property_type: The property type string from the request
-        
+
     Returns:
         The corresponding TypeCode enum value
-        
+
     Raises:
         ValueError: If the property type is invalid
     """
     if not property_type:
         raise ValueError("Property type must be provided")
-        
+
     # Convert to uppercase for case-insensitive comparison
     property_type = property_type.upper()
-    
+
     # Check if the type is valid
     if property_type not in PROPERTY_TYPE_MAP:
         valid_types = ', '.join(sorted(PROPERTY_TYPE_MAP.keys()))
         raise ValueError(f"Invalid property type: {property_type}. Allowed types are: {valid_types}")
-    
+
     return PROPERTY_TYPE_MAP[property_type]
 
 def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploration], EdgeDirection):
@@ -149,11 +149,11 @@ def execute_node_expansion(
     params_str: str,
     request: dict) -> dict:
     """Execute a node expansion query to find connected nodes and edges.
-    
+
     Args:
         params_str: A JSON string containing connection parameters (project, instance, database, graph, mock).
         request: A dictionary containing node expansion request details (uid, node_labels, node_properties, direction, edge_label).
-    
+
     Returns:
         dict: A dictionary containing the query response with nodes and edges.
     """
@@ -206,49 +206,70 @@ def execute_node_expansion(
 
     return execute_query(project, instance, database, query, mock=False)
 
-def execute_query(project: str, instance: str, database: str, query: str, mock = False):
-    database = get_database_instance(project, instance, database, mock)
+def execute_query(
+    project: str,
+    instance: str,
+    database: str,
+    query: str,
+    mock: bool = False,
+) -> Dict[str, Any]:
+    """Executes a query against a database and formats the result.
 
+    Connects to a database, runs the query, and processes the resulting object.
+    On success, it formats the data into nodes and edges for graph visualization.
+    If the query fails, it returns a detailed error message, optionally
+    including the database schema to aid in debugging.
+
+    Args:
+        project: The cloud project ID.
+        instance: The database instance name.
+        database: The database name.
+        query: The query string to execute.
+        mock: If True, use a mock database instance for testing. Defaults to False.
+
+    Returns:
+        A dictionary containing either the structured 'response' with nodes,
+        edges, and other data, or an 'error' key with a descriptive message.
+    """
     try:
-        query_result, fields, rows, schema_json, err = database.execute_query(query)
-        if len(rows) == 0 and err : # if query returned an error
-            if schema_json: # if the schema exists
-                return {
-                    "response": {
-                        "schema": schema_json,
-                        "query_result": query_result,
-                        "nodes": [],
-                        "edges": [],
-                        "rows": []
-                    },
-                    "error": f"We've detected an error in your query. To help you troubleshoot, the graph schema's layout is shown above." + "\n\n" + f"Query error: \n{getattr(err, 'message', str(err))}"
-                }
-            if not schema_json: # if the schema does not exist
-                return {
-                    "response": {
-                        "schema": schema_json,
-                        "query_result": query_result,
-                        "nodes": [],
-                        "edges": [],
-                        "rows": []
-                    },
-                    "error": f"Query error: \n{getattr(err, 'message', str(err))}"
-                }
-        nodes, edges = get_nodes_edges(query_result, fields, schema_json)
-        
+        db_instance = get_database_instance(project, instance, database, mock)
+        result: SpannerQueryResult = db_instance.execute_query(query)
+
+        if len(result.rows) == 0 and result.err:
+            error_message = f"Query error: \n{getattr(result.err, 'message', str(result.err))}"
+            if result.schema_json:
+                # Prepend a helpful message if the schema is available
+                error_message = (
+                    "We've detected an error in your query. To help you troubleshoot, "
+                    "the graph schema's layout is shown above.\n\n" + error_message
+                )
+
+            # Consolidate the repetitive error response into a single return
+            return {
+                "response": {
+                    "schema": result.schema_json,
+                    "query_result": result.data,
+                    "nodes": [],
+                    "edges": [],
+                    "rows": [],
+                },
+                "error": error_message,
+            }
+
+        # Process a successful query result
+        nodes, edges = get_nodes_edges(result.data, result.fields, result.schema_json)
+
         return {
             "response": {
                 "nodes": [node.to_json() for node in nodes],
                 "edges": [edge.to_json() for edge in edges],
-                "schema": schema_json,
-                "rows": rows,
-                "query_result": query_result
+                "schema": result.schema_json,
+                "rows": result.rows,
+                "query_result": result.data,
             }
         }
     except Exception as e:
-        return {
-            "error": getattr(e, "message", str(e))
-        }
+        return {"error": getattr(e, "message", str(e))}
 
 
 class GraphServer:
@@ -360,7 +381,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
     def handle_post_query(self):
         data = self.parse_post_data()
         params = json.loads(data["params"])
-        response = execute_query(            
+        response = execute_query(
             project=params["project"],
             instance=params["instance"],
             database=params["database"],
@@ -371,7 +392,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_post_node_expansion(self):
         """Handle POST requests for node expansion.
-        
+
         Expects a JSON payload with:
         - params: A JSON string containing connection parameters (project, instance, database, graph)
         - request: A dictionary with node details (uid, node_labels, node_properties, direction, edge_label)
