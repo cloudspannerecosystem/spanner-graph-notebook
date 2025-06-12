@@ -117,7 +117,13 @@ class CloudSpannerDatabase(SpannerDatabase):
                 results = snapshot.execute_sql(query, params=params, param_types=param_types)
                 rows = list(results)
             except Exception as e:
-                return {}, [], [], self.schema_json, e
+                return SpannerQueryResult(
+                    data={},
+                    fields=[],
+                    rows=[],
+                    schema_json=self.schema_json,
+                    err=e
+                )
 
             fields: List[SpannerFieldInfo] = get_as_field_info_list(results.fields)
             data = {field.name: [] for field in fields}
@@ -128,7 +134,7 @@ class CloudSpannerDatabase(SpannerDatabase):
                     fields=fields,
                     rows=rows,
                     schema_json=self.schema_json,
-                    error=None
+                    err=None
                 )
 
             for row_data in rows:
@@ -143,5 +149,5 @@ class CloudSpannerDatabase(SpannerDatabase):
                 fields=fields,
                 rows=rows,
                 schema_json=self.schema_json,
-                error=None
+                err=None
             )

@@ -37,7 +37,7 @@ class SpannerQueryResult(NamedTuple):
     # An optional field to return the schema as JSON
     schema_json: Any | None
     # The error message if any
-    error: Exception | None
+    err: Exception | None
 
 class SpannerDatabase(ABC):
     """The spanner class holding the database connection"""
@@ -129,7 +129,7 @@ class MockSpannerDatabase():
                     fields=fields,
                     rows=rows,
                     schema_json=self.schema_json,
-                    error=None
+                    err=None
                 )
 
         for i, row in enumerate(results):
@@ -143,5 +143,5 @@ class MockSpannerDatabase():
                 fields=fields,
                 rows=rows,
                 schema_json=self.schema_json,
-                error=None
+                err=None
             )

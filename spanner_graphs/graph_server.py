@@ -25,7 +25,7 @@ import atexit
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
-
+from spanner_graphs.database import SpannerQueryResult
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
