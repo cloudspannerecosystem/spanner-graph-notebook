@@ -21,8 +21,6 @@ from __future__ import annotations
 from typing import Any, List, Dict, Tuple
 import json
 
-from google.cloud.spanner_v1.types import TypeCode, StructType
-
 from spanner_graphs.database import SpannerFieldInfo
 from spanner_graphs.graph_entities import Node, Edge
 from spanner_graphs.schema_manager import SchemaManager

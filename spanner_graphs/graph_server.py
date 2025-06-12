@@ -22,46 +22,45 @@ from typing import Union, Dict, Any
 import requests
 import portpicker
 import atexit
-from google.cloud.spanner_v1 import TypeCode
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
 
 
-# Mapping of string types from frontend to Spanner TypeCode enum values
-PROPERTY_TYPE_MAP = {
-    'BOOL': TypeCode.BOOL,
-    'BYTES': TypeCode.BYTES,
-    'DATE': TypeCode.DATE,
-    'ENUM': TypeCode.ENUM,
-    'INT64': TypeCode.INT64,
-    'NUMERIC': TypeCode.NUMERIC,
-    'FLOAT32': TypeCode.FLOAT32,
-    'FLOAT64': TypeCode.FLOAT64,
-    'STRING': TypeCode.STRING,
-    'TIMESTAMP': TypeCode.TIMESTAMP
+# Supported types for a property
+PROPERTY_TYPE_SET = {
+    'BOOL',
+    'BYTES',
+    'DATE',
+    'ENUM',
+    'INT64',
+    'NUMERIC',
+    'FLOAT32',
+    'FLOAT64',
+    'STRING',
+    'TIMESTAMP'
 }
 
 class NodePropertyForDataExploration:
-    def __init__(self, key: str, value: Union[str, int, float, bool], type: TypeCode):
+    def __init__(self, key: str, value: Union[str, int, float, bool], type_str: str):
         self.key = key
         self.value = value
-        self.type = type
+        self.type_str = type_str
 
 
 class EdgeDirection(Enum):
     INCOMING = "INCOMING"
     OUTGOING = "OUTGOING"
 
-def validate_property_type(property_type: str) -> TypeCode:
+def is_valid_property_type(property_type: str) -> bool:
     """
-    Validates and converts a property type string to a Spanner TypeCode.
+    Validates a property type.
 
     Args:
         property_type: The property type string from the request
 
     Returns:
-        The corresponding TypeCode enum value
+        'True' if the property type is valid and supported
 
     Raises:
         ValueError: If the property type is invalid
@@ -73,11 +72,11 @@ def validate_property_type(property_type: str) -> TypeCode:
     property_type = property_type.upper()
 
     # Check if the type is valid
-    if property_type not in PROPERTY_TYPE_MAP:
-        valid_types = ', '.join(sorted(PROPERTY_TYPE_MAP.keys()))
+    if property_type not in PROPERTY_TYPE_SET:
+        valid_types = ', '.join(sorted(PROPERTY_TYPE_SET))
         raise ValueError(f"Invalid property type: {property_type}. Allowed types are: {valid_types}")
 
-    return PROPERTY_TYPE_MAP[property_type]
+    return True
 
 def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploration], EdgeDirection):
     required_fields = ["project", "instance", "database", "graph", "uid", "node_labels", "direction"]
@@ -112,26 +111,27 @@ def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploratio
         try:
             prop_type_str = prop["type"]
             if isinstance(prop_type_str, str):
-                prop_type = validate_property_type(prop_type_str)
+                # This must be True. If not, an execption would be thrown.
+                assert(is_valid_property_type(prop_type_str))
 
                 value = prop["value"]
-                if prop_type in (TypeCode.INT64, TypeCode.NUMERIC):
+                if prop_type_str in ('INT64', 'NUMERIC'):
                     if not (isinstance(value, int) or (isinstance(value, str) and value.isdigit())):
                         raise ValueError(f"Property '{prop['key']}' value must be a number for type {prop_type_str}")
-                elif prop_type in (TypeCode.FLOAT32, TypeCode.FLOAT64):
+                elif prop_type_str in ('FLOAT32', 'FLOAT64'):
                     try:
                         float(value)
                     except (ValueError, TypeError):
                         raise ValueError(
                             f"Property '{prop['key']}' value must be a valid float for type {prop_type_str}")
-                elif prop_type == TypeCode.BOOL:
+                elif prop_type_str == 'BOOL':
                     if not isinstance(value, bool) and not (isinstance(value, str) and value.lower() in ["true", "false"]):
                         raise ValueError(f"Property '{prop['key']}' value must be a boolean for type {prop_type_str}")
 
                 validated_properties.append(NodePropertyForDataExploration(
                     key=prop["key"],
                     value=prop["value"],
-                    type=prop_type
+                    type_str=prop_type_str
                 ))
             else:
                 raise ValueError(f"Property type at index {idx} must be a string")
@@ -185,7 +185,7 @@ def execute_node_expansion(
     node_property_strings: list[str] = []
     for node_property in node_properties:
         value_str: str
-        if node_property.type in (TypeCode.INT64, TypeCode.NUMERIC, TypeCode.FLOAT32, TypeCode.FLOAT64, TypeCode.BOOL):
+        if node_property.type_str in ('INT64', 'NUMERIC', 'FLOAT32', 'FLOAT64', 'BOOL'):
             value_str = node_property.value
         else:
             value_str = f"\'''{node_property.value}\'''"
