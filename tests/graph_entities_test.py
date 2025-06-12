@@ -43,11 +43,11 @@ class TestNode(unittest.TestCase):
         # Test with intermediate=True
         node1 = Node("1", ["Person"], {"name": "Emmanuel"}, intermediate=True)
         self.assertTrue(node1.intermediate, "Node should be marked as intermediate")
-        
+
         # Test with intermediate=False
         node2 = Node("2", ["Person"], {"name": "John"}, intermediate=False)
         self.assertFalse(node2.intermediate, "Node should not be marked as intermediate")
-        
+
         # Test with default (should be False)
         node3 = Node("3", ["Person"], {"name": "Alice"})
         self.assertFalse(node3.intermediate, "Node should default to not intermediate")
@@ -56,7 +56,7 @@ class TestNode(unittest.TestCase):
         """Test the make_intermediate static method"""
         test_identifier = "test123"
         node = Node.make_intermediate(test_identifier)
-        
+
         self.assertEqual(node.identifier, test_identifier, "Identifier should match input")
         self.assertEqual(node.labels, ["Intermediate"], "Labels should include 'Intermediate'")
         self.assertTrue(node.intermediate, "Node should be marked as intermediate")
@@ -72,7 +72,7 @@ class TestNode(unittest.TestCase):
         node1 = Node("1", ["Person"], {"name": "Jill"}, intermediate=True)
         json1 = node1.to_json()
         self.assertTrue(json1["intermediate"], "JSON should include intermediate=True")
-        
+
         # Test with intermediate=False
         node2 = Node("2", ["Person"], {"name": "John"}, intermediate=False)
         json2 = node2.to_json()
@@ -117,7 +117,7 @@ class TestEdge(unittest.TestCase):
         edge = Edge.from_json(data)
         edge.add_to_graph(graph)
 
-        self.assertIn((1, 2), graph.edges)
+        self.assertIn(('1', '2'), graph.edges)
         # self.assertEqual(graph.edges[1, 2]["label"], "KNOWS")
         # self.assertEqual(graph.edges[1, 2]["title"],
         #                  "--- Edge Properties ---\nsince: 2020")

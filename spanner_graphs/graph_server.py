@@ -56,27 +56,27 @@ class EdgeDirection(Enum):
 def validate_property_type(property_type: str) -> TypeCode:
     """
     Validates and converts a property type string to a Spanner TypeCode.
-    
+
     Args:
         property_type: The property type string from the request
-        
+
     Returns:
         The corresponding TypeCode enum value
-        
+
     Raises:
         ValueError: If the property type is invalid
     """
     if not property_type:
         raise ValueError("Property type must be provided")
-        
+
     # Convert to uppercase for case-insensitive comparison
     property_type = property_type.upper()
-    
+
     # Check if the type is valid
     if property_type not in PROPERTY_TYPE_MAP:
         valid_types = ', '.join(sorted(PROPERTY_TYPE_MAP.keys()))
         raise ValueError(f"Invalid property type: {property_type}. Allowed types are: {valid_types}")
-    
+
     return PROPERTY_TYPE_MAP[property_type]
 
 def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploration], EdgeDirection):
@@ -149,11 +149,11 @@ def execute_node_expansion(
     params_str: str,
     request: dict) -> dict:
     """Execute a node expansion query to find connected nodes and edges.
-    
+
     Args:
         params_str: A JSON string containing connection parameters (project, instance, database, graph, mock).
         request: A dictionary containing node expansion request details (uid, node_labels, node_properties, direction, edge_label).
-    
+
     Returns:
         dict: A dictionary containing the query response with nodes and edges.
     """
@@ -235,7 +235,7 @@ def execute_query(project: str, instance: str, database: str, query: str, mock =
                     "error": f"Query error: \n{getattr(err, 'message', str(err))}"
                 }
         nodes, edges = get_nodes_edges(query_result, fields, schema_json)
-        
+
         return {
             "response": {
                 "nodes": [node.to_json() for node in nodes],
@@ -360,7 +360,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
     def handle_post_query(self):
         data = self.parse_post_data()
         params = json.loads(data["params"])
-        response = execute_query(            
+        response = execute_query(
             project=params["project"],
             instance=params["instance"],
             database=params["database"],
@@ -371,7 +371,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_post_node_expansion(self):
         """Handle POST requests for node expansion.
-        
+
         Expects a JSON payload with:
         - params: A JSON string containing connection parameters (project, instance, database, graph)
         - request: A dictionary with node details (uid, node_labels, node_properties, direction, edge_label)
