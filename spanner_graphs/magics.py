@@ -94,7 +94,7 @@ def receive_query_request(query: str, params: str):
 
 def receive_node_expansion_request(request: dict, params_str: str):
     """Handle node expansion requests in Google Colab environment
-    
+
     Args:
         request: A dictionary containing node expansion details including:
             - uid: str - Unique identifier of the node to expand
@@ -108,7 +108,7 @@ def receive_node_expansion_request(request: dict, params_str: str):
             - database: str - Spanner database ID
             - graph: str - Graph name
             - mock: bool - Whether to use mock data
-    
+
     Returns:
         JSON: A JSON-serialized response containing either:
             - The query results with nodes and edges
@@ -165,6 +165,7 @@ class NetworkVisualizationMagics(Magics):
     @cell_magic
     def spanner_graph(self, line: str, cell: str):
         """spanner_graph function"""
+
         parser = argparse.ArgumentParser(
             description="Visualize network from Spanner database",
             exit_on_error=False)
@@ -184,6 +185,9 @@ class NetworkVisualizationMagics(Magics):
                     raise ValueError(
                         "Please provide `--project`, `--instance`, "
                         "and `--database` values for your query.")
+                if not cell or not cell.strip():
+                    print("Error: Query is required.")
+                    return
 
             self.args = parser.parse_args(line.split())
             self.cell = cell
