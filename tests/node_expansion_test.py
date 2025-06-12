@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import json
 
 from spanner_graphs.magics import receive_node_expansion_request
-from spanner_graphs.graph_server import EdgeDirection, TypeCode
+from spanner_graphs.graph_server import EdgeDirection
 
 class TestNodeExpansion(unittest.TestCase):
     def setUp(self):
@@ -35,7 +35,7 @@ class TestNodeExpansion(unittest.TestCase):
                 "edges": []
             }
         }
-        
+
         # Create request and params objects
         request = {
             "uid": "node-123",
@@ -46,7 +46,7 @@ class TestNodeExpansion(unittest.TestCase):
             "direction": "OUTGOING",
             "edge_label": "CONNECTS_TO"
         }
-        
+
         params = json.dumps({
             "project": "test-project",
             "instance": "test-instance",
@@ -54,13 +54,13 @@ class TestNodeExpansion(unittest.TestCase):
             "graph": "test_graph",
             "mock": False
         })
-        
+
         # Call the function
         result = receive_node_expansion_request(request, params)
-        
+
         # Verify execute_node_expansion was called with correct parameters
         mock_execute.assert_called_once_with(params, request)
-        
+
         # Verify the result is wrapped in JSON
         self.assertEqual(result.data, mock_execute.return_value)
 
@@ -76,7 +76,7 @@ class TestNodeExpansion(unittest.TestCase):
                 "edges": []
             }
         }
-        
+
         # Create request without edge_label and params objects
         request = {
             "uid": "node-123",
@@ -87,7 +87,7 @@ class TestNodeExpansion(unittest.TestCase):
             "direction": "OUTGOING"
             # No edge_label
         }
-        
+
         params = json.dumps({
             "project": "test-project",
             "instance": "test-instance",
@@ -95,22 +95,22 @@ class TestNodeExpansion(unittest.TestCase):
             "graph": "test_graph",
             "mock": False
         })
-        
+
         # Call the function
         result = receive_node_expansion_request(request, params)
-        
+
         # Verify execute_node_expansion was called with correct parameters
         mock_execute.assert_called_once_with(params, request)
-        
+
         # Verify the result is wrapped in JSON
         self.assertEqual(result.data, mock_execute.return_value)
-        
+
     @patch('spanner_graphs.magics.validate_node_expansion_request')
     def test_invalid_property_type(self, mock_validate):
         """Test that invalid property types are correctly caught."""
         # Set up the mock to raise a ValueError when called with invalid data
         mock_validate.side_effect = ValueError("Invalid property type")
-        
+
         # Create a request with invalid property type
         request = {
             "uid": "node-123",
@@ -120,7 +120,7 @@ class TestNodeExpansion(unittest.TestCase):
             ],
             "direction": "OUTGOING"
         }
-        
+
         params = json.dumps({
             "project": "test-project",
             "instance": "test-instance",
@@ -132,13 +132,13 @@ class TestNodeExpansion(unittest.TestCase):
         # Call the function and verify it returns an error response
         result = receive_node_expansion_request(request, params)
         self.assertIn("error", result.data)
-        
+
     @patch('spanner_graphs.magics.validate_node_expansion_request')
     def test_invalid_direction(self, mock_validate):
         """Test that invalid directions are correctly caught."""
         # Set up the mock to raise a ValueError when called with invalid data
         mock_validate.side_effect = ValueError("Invalid direction")
-        
+
         # Create a request with invalid direction
         request = {
             "uid": "node-123",
@@ -148,7 +148,7 @@ class TestNodeExpansion(unittest.TestCase):
             ],
             "direction": "INVALID_DIRECTION"
         }
-        
+
         params = json.dumps({
             "project": "test-project",
             "instance": "test-instance",
@@ -162,4 +162,4 @@ class TestNodeExpansion(unittest.TestCase):
         self.assertIn("error", result.data)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

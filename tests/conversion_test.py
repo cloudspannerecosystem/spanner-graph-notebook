@@ -20,10 +20,8 @@ from __future__ import annotations
 import unittest
 import json
 
-from google.cloud.spanner_v1.types import StructType, Type, TypeCode
-
 from spanner_graphs.conversion import get_nodes_edges
-from spanner_graphs.database import MockSpannerDatabase
+from spanner_graphs.database import SpannerFieldInfo, MockSpannerDatabase
 
 
 class TestConversion(unittest.TestCase):
@@ -38,10 +36,10 @@ class TestConversion(unittest.TestCase):
         """
         # Get data from mock database
         mock_db = MockSpannerDatabase()
-        data, fields, _, schema_json, _ = mock_db.execute_query("")
+        query_result = mock_db.execute_query("")
 
         # Convert data to nodes and edges
-        nodes, edges = get_nodes_edges(data, fields)
+        nodes, edges = get_nodes_edges(query_result.data, query_result.fields)
 
         # Verify we got some nodes and edges
         self.assertTrue(len(nodes) > 0, "Should have at least one node")
@@ -103,9 +101,9 @@ class TestConversion(unittest.TestCase):
         }
 
         # Create a mock field for the column
-        field = StructType.Field(
+        field = SpannerFieldInfo(
             name="column1",
-            type_=Type(code=TypeCode.JSON)
+            typename="JSON"
         )
 
         # Convert data to nodes and edges
@@ -165,9 +163,9 @@ class TestConversion(unittest.TestCase):
         }
 
         # Create a mock field for the column
-        field = StructType.Field(
+        field = SpannerFieldInfo(
             name="column1",
-            type_=Type(code=TypeCode.JSON)
+            typename="JSON"
         )
 
         # Convert data to nodes and edges
@@ -211,9 +209,9 @@ class TestConversion(unittest.TestCase):
         }
 
         # Create a mock field for the column
-        field = StructType.Field(
+        field = SpannerFieldInfo(
             name="column1",
-            type_=Type(code=TypeCode.JSON)
+            typename="JSON"
         )
 
         # Convert data to nodes and edges

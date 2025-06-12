@@ -17,51 +17,50 @@ import socketserver
 import json
 import threading
 from enum import Enum
-from typing import Union
+from typing import Union, Dict, Any
 
 import requests
 import portpicker
 import atexit
-from google.cloud.spanner_v1 import TypeCode
 
 from spanner_graphs.conversion import get_nodes_edges
-from spanner_graphs.database import get_database_instance
+from spanner_graphs.exec_env import get_database_instance
+from spanner_graphs.database import SpannerQueryResult
 
-
-# Mapping of string types from frontend to Spanner TypeCode enum values
-PROPERTY_TYPE_MAP = {
-    'BOOL': TypeCode.BOOL,
-    'BYTES': TypeCode.BYTES,
-    'DATE': TypeCode.DATE,
-    'ENUM': TypeCode.ENUM,
-    'INT64': TypeCode.INT64,
-    'NUMERIC': TypeCode.NUMERIC,
-    'FLOAT32': TypeCode.FLOAT32,
-    'FLOAT64': TypeCode.FLOAT64,
-    'STRING': TypeCode.STRING,
-    'TIMESTAMP': TypeCode.TIMESTAMP
+# Supported types for a property
+PROPERTY_TYPE_SET = {
+    'BOOL',
+    'BYTES',
+    'DATE',
+    'ENUM',
+    'INT64',
+    'NUMERIC',
+    'FLOAT32',
+    'FLOAT64',
+    'STRING',
+    'TIMESTAMP'
 }
 
 class NodePropertyForDataExploration:
-    def __init__(self, key: str, value: Union[str, int, float, bool], type: TypeCode):
+    def __init__(self, key: str, value: Union[str, int, float, bool], type_str: str):
         self.key = key
         self.value = value
-        self.type = type
+        self.type_str = type_str
 
 
 class EdgeDirection(Enum):
     INCOMING = "INCOMING"
     OUTGOING = "OUTGOING"
 
-def validate_property_type(property_type: str) -> TypeCode:
+def is_valid_property_type(property_type: str) -> bool:
     """
-    Validates and converts a property type string to a Spanner TypeCode.
+    Validates a property type.
 
     Args:
         property_type: The property type string from the request
 
     Returns:
-        The corresponding TypeCode enum value
+        'True' if the property type is valid and supported
 
     Raises:
         ValueError: If the property type is invalid
@@ -73,11 +72,11 @@ def validate_property_type(property_type: str) -> TypeCode:
     property_type = property_type.upper()
 
     # Check if the type is valid
-    if property_type not in PROPERTY_TYPE_MAP:
-        valid_types = ', '.join(sorted(PROPERTY_TYPE_MAP.keys()))
+    if property_type not in PROPERTY_TYPE_SET:
+        valid_types = ', '.join(sorted(PROPERTY_TYPE_SET))
         raise ValueError(f"Invalid property type: {property_type}. Allowed types are: {valid_types}")
 
-    return PROPERTY_TYPE_MAP[property_type]
+    return True
 
 def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploration], EdgeDirection):
     required_fields = ["project", "instance", "database", "graph", "uid", "node_labels", "direction"]
@@ -112,26 +111,27 @@ def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploratio
         try:
             prop_type_str = prop["type"]
             if isinstance(prop_type_str, str):
-                prop_type = validate_property_type(prop_type_str)
+                # This must be True. If not, an execption would be thrown.
+                assert(is_valid_property_type(prop_type_str))
 
                 value = prop["value"]
-                if prop_type in (TypeCode.INT64, TypeCode.NUMERIC):
+                if prop_type_str in ('INT64', 'NUMERIC'):
                     if not (isinstance(value, int) or (isinstance(value, str) and value.isdigit())):
                         raise ValueError(f"Property '{prop['key']}' value must be a number for type {prop_type_str}")
-                elif prop_type in (TypeCode.FLOAT32, TypeCode.FLOAT64):
+                elif prop_type_str in ('FLOAT32', 'FLOAT64'):
                     try:
                         float(value)
                     except (ValueError, TypeError):
                         raise ValueError(
                             f"Property '{prop['key']}' value must be a valid float for type {prop_type_str}")
-                elif prop_type == TypeCode.BOOL:
+                elif prop_type_str == 'BOOL':
                     if not isinstance(value, bool) and not (isinstance(value, str) and value.lower() in ["true", "false"]):
                         raise ValueError(f"Property '{prop['key']}' value must be a boolean for type {prop_type_str}")
 
                 validated_properties.append(NodePropertyForDataExploration(
                     key=prop["key"],
                     value=prop["value"],
-                    type=prop_type
+                    type_str=prop_type_str
                 ))
             else:
                 raise ValueError(f"Property type at index {idx} must be a string")
@@ -185,7 +185,7 @@ def execute_node_expansion(
     node_property_strings: list[str] = []
     for node_property in node_properties:
         value_str: str
-        if node_property.type in (TypeCode.INT64, TypeCode.NUMERIC, TypeCode.FLOAT32, TypeCode.FLOAT64, TypeCode.BOOL):
+        if node_property.type_str in ('INT64', 'NUMERIC', 'FLOAT32', 'FLOAT64', 'BOOL'):
             value_str = node_property.value
         else:
             value_str = f"\'''{node_property.value}\'''"
@@ -206,49 +206,70 @@ def execute_node_expansion(
 
     return execute_query(project, instance, database, query, mock=False)
 
-def execute_query(project: str, instance: str, database: str, query: str, mock = False):
-    database = get_database_instance(project, instance, database, mock)
+def execute_query(
+    project: str,
+    instance: str,
+    database: str,
+    query: str,
+    mock: bool = False,
+) -> Dict[str, Any]:
+    """Executes a query against a database and formats the result.
 
+    Connects to a database, runs the query, and processes the resulting object.
+    On success, it formats the data into nodes and edges for graph visualization.
+    If the query fails, it returns a detailed error message, optionally
+    including the database schema to aid in debugging.
+
+    Args:
+        project: The cloud project ID.
+        instance: The database instance name.
+        database: The database name.
+        query: The query string to execute.
+        mock: If True, use a mock database instance for testing. Defaults to False.
+
+    Returns:
+        A dictionary containing either the structured 'response' with nodes,
+        edges, and other data, or an 'error' key with a descriptive message.
+    """
     try:
-        query_result, fields, rows, schema_json, err = database.execute_query(query)
-        if len(rows) == 0 and err : # if query returned an error
-            if schema_json: # if the schema exists
-                return {
-                    "response": {
-                        "schema": schema_json,
-                        "query_result": query_result,
-                        "nodes": [],
-                        "edges": [],
-                        "rows": []
-                    },
-                    "error": f"We've detected an error in your query. To help you troubleshoot, the graph schema's layout is shown above." + "\n\n" + f"Query error: \n{getattr(err, 'message', str(err))}"
-                }
-            if not schema_json: # if the schema does not exist
-                return {
-                    "response": {
-                        "schema": schema_json,
-                        "query_result": query_result,
-                        "nodes": [],
-                        "edges": [],
-                        "rows": []
-                    },
-                    "error": f"Query error: \n{getattr(err, 'message', str(err))}"
-                }
-        nodes, edges = get_nodes_edges(query_result, fields, schema_json)
+        db_instance = get_database_instance(project, instance, database, mock)
+        result: SpannerQueryResult = db_instance.execute_query(query)
+
+        if len(result.rows) == 0 and result.err:
+            error_message = f"Query error: \n{getattr(result.err, 'message', str(result.err))}"
+            if result.schema_json:
+                # Prepend a helpful message if the schema is available
+                error_message = (
+                    "We've detected an error in your query. To help you troubleshoot, "
+                    "the graph schema's layout is shown above.\n\n" + error_message
+                )
+
+            # Consolidate the repetitive error response into a single return
+            return {
+                "response": {
+                    "schema": result.schema_json,
+                    "query_result": result.data,
+                    "nodes": [],
+                    "edges": [],
+                    "rows": [],
+                },
+                "error": error_message,
+            }
+
+        # Process a successful query result
+        nodes, edges = get_nodes_edges(result.data, result.fields, result.schema_json)
 
         return {
             "response": {
                 "nodes": [node.to_json() for node in nodes],
                 "edges": [edge.to_json() for edge in edges],
-                "schema": schema_json,
-                "rows": rows,
-                "query_result": query_result
+                "schema": result.schema_json,
+                "rows": result.rows,
+                "query_result": result.data,
             }
         }
     except Exception as e:
-        return {
-            "error": getattr(e, "message", str(e))
-        }
+        return {"error": getattr(e, "message", str(e))}
 
 
 class GraphServer:

@@ -1,10 +1,9 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from google.cloud.spanner_v1 import TypeCode
 import json
 
 from spanner_graphs.graph_server import (
-    validate_property_type,
+    is_valid_property_type,
     execute_node_expansion,
 )
 
@@ -12,26 +11,25 @@ class TestPropertyTypeHandling(unittest.TestCase):
     def test_validate_property_type_valid_types(self):
         """Test that valid property types are correctly validated and converted."""
         test_cases = [
-            ('INT64', TypeCode.INT64),
-            ('STRING', TypeCode.STRING),
-            ('BOOL', TypeCode.BOOL),
-            ('NUMERIC', TypeCode.NUMERIC),
-            ('FLOAT32', TypeCode.FLOAT32),
-            ('FLOAT64', TypeCode.FLOAT64),
-            ('DATE', TypeCode.DATE),
-            ('TIMESTAMP', TypeCode.TIMESTAMP),
-            ('BYTES', TypeCode.BYTES),
-            ('ENUM', TypeCode.ENUM),
+            'INT64',
+            'STRING',
+            'BOOL',
+            'NUMERIC',
+            'FLOAT32',
+            'FLOAT64',
+            'DATE',
+            'TIMESTAMP',
+            'BYTES',
+            'ENUM',
             # Test case insensitivity
-            ('int64', TypeCode.INT64),
-            ('string', TypeCode.STRING),
-            ('Bool', TypeCode.BOOL),
+            'int64',
+            'string',
+            'Bool',
         ]
 
-        for input_type, expected_type in test_cases:
+        for input_type in test_cases:
             with self.subTest(input_type=input_type):
-                result = validate_property_type(input_type)
-                self.assertEqual(result, expected_type)
+                self.assertTrue(is_valid_property_type(input_type))
 
     def test_validate_property_type_invalid_types(self):
         """Test that invalid property types raise appropriate errors."""
@@ -48,7 +46,7 @@ class TestPropertyTypeHandling(unittest.TestCase):
         for invalid_type in invalid_types:
             with self.subTest(invalid_type=invalid_type):
                 with self.assertRaises(ValueError) as cm:
-                    validate_property_type(invalid_type)
+                    is_valid_property_type(invalid_type)
 
                 if not invalid_type:
                     self.assertEqual(str(cm.exception), "Property type must be provided")
