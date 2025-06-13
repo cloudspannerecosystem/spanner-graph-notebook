@@ -33,7 +33,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="spanner-graph-notebook",
-    version="v1.1.6",
+    version="v1.1.7",
     packages=find_packages(),
     install_requires=[
         "networkx", "numpy", "google-cloud-spanner", "ipython",
