@@ -165,7 +165,7 @@ class SpannerApp {
                                 }
 
                                 if (data.error) {
-                                    this.graph.showErrorStateForNode(node, error);
+                                    this.graph.showErrorStateForNode(node, data.error);
                                     return;
                                 }
 
