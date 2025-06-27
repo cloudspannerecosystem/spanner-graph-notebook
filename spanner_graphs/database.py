@@ -115,6 +115,7 @@ class MockSpannerDatabase():
         self,
         _: str,
         params: Dict[str, Any] = None,
+        param_types: Dict[str, Any] = None,
         limit: int = 5
     ) -> SpannerQueryResult:
         """Mock execution of query"""

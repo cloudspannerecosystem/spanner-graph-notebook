@@ -26,6 +26,7 @@ import atexit
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.database import SpannerQueryResult
+from google.cloud import spanner
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
@@ -188,6 +189,7 @@ def execute_node_expansion(
 
     node_property_clauses: list[str] = []
     params_dict: dict = {}
+    param_types_dict: dict = {}
 
     for i, node_property in enumerate(node_properties):
         param_name = f"param_{i}"
@@ -198,18 +200,24 @@ def execute_node_expansion(
         value = node_property.value
 
         if type_str in ("INT64", "NUMERIC"):
-            change_type = int(value)
+            value_casting = int(value)
+            param_type = spanner.param_types.INT64
         elif type_str in ("FLOAT32", "FLOAT64"):
-            change_type = float(value)
+            value_casting = float(value)
+            param_type = spanner.param_types.FLOAT64
         elif type_str == "BOOL":
-            change_type = value.lower() == "true"
+            value_casting = value.lower() == "true"
+            param_type = spanner.param_types.BOOL
         else:
-            change_type = str(value)
+            value_casting = str(value)
+            param_type = spanner.param_types.STRING
 
-        params_dict[param_name] = change_type
+        params_dict[param_name] = value_casting
+        param_types_dict[param_name] = param_type
 
-    filtered_uid = "STRING(TO_JSON(n).identifier) = @uid_param"
-    params_dict["uid_param"] = str(uid)
+    filtered_uid = "STRING(TO_JSON(n).identifier) = @uid"
+    params_dict["uid"] = str(uid)
+    param_types_dict["uid"] = spanner.param_types.STRING
 
     where_clauses = node_property_clauses + [filtered_uid]
     where_clause_str = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
@@ -226,8 +234,11 @@ def execute_node_expansion(
         RETURN TO_JSON(e) as e, TO_JSON(d) as d
         """
 
-    return execute_query(project, instance, database, query, mock=False,
-                         params=params_dict)
+    return execute_query(
+        project, instance, database, query, mock=False,
+        params=params_dict, param_types=param_types_dict
+    )
+
 
 def execute_query(
     project: str,
@@ -236,6 +247,7 @@ def execute_query(
     query: str,
     mock: bool = False,
     params: Dict[str, Any] = None,
+    param_types: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """Executes a query against a database and formats the result.
 
@@ -257,8 +269,11 @@ def execute_query(
     """
     try:
         db_instance = get_database_instance(project, instance, database, mock)
-        result: SpannerQueryResult = db_instance.execute_query(query,
-                                                               params=params)
+        result: SpannerQueryResult = db_instance.execute_query(
+            query,
+            params=params,
+            param_types=param_types
+        )
 
         if len(result.rows) == 0 and result.err:
             error_message = f"Query error: \n{getattr(result.err, 'message', str(result.err))}"
