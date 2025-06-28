@@ -22,6 +22,7 @@ from typing import Union, Dict, Any
 import requests
 import portpicker
 import atexit
+from datetime import datetime
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
@@ -208,9 +209,15 @@ def execute_node_expansion(
         elif type_str == "BOOL":
             value_casting = value.lower() == "true"
             param_type = spanner.param_types.BOOL
-        else:
+        elif type_str == "STRING":
             value_casting = str(value)
             param_type = spanner.param_types.STRING
+        elif type_str == "DATE":
+            value_casting = datetime.strptime(value, "%Y-%m-%d").date()
+            param_type = spanner.param_types.DATE
+        elif type_str == "TIMESTAMP":
+            value_casting = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            param_type = spanner.param_types.TIMESTAMP
 
         params_dict[param_name] = value_casting
         param_types_dict[param_name] = param_type
