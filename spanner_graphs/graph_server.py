@@ -22,10 +22,12 @@ from typing import Union, Dict, Any
 import requests
 import portpicker
 import atexit
+from datetime import datetime
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.database import SpannerQueryResult
+from google.cloud import spanner
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
@@ -145,14 +147,18 @@ def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploratio
 
     return validated_properties, direction
 
+
 def execute_node_expansion(
     params_str: str,
-    request: dict) -> dict:
+    request: dict
+) -> dict:
     """Execute a node expansion query to find connected nodes and edges.
 
     Args:
-        params_str: A JSON string containing connection parameters (project, instance, database, graph, mock).
-        request: A dictionary containing node expansion request details (uid, node_labels, node_properties, direction, edge_label).
+        params_str: A JSON string containing connection parameters (project,
+        instance, database, graph, mock).
+        request: A dictionary containing node expansion request details (uid,
+        node_labels, node_properties, direction, edge_label).
 
     Returns:
         dict: A dictionary containing the query response with nodes and edges.
@@ -182,20 +188,51 @@ def execute_node_expansion(
     if node_labels and len(node_labels) > 0:
         node_label_str = f": {' & '.join(node_labels)}"
 
-    node_property_strings: list[str] = []
-    for node_property in node_properties:
-        value_str: str
-        if node_property.type_str in ('INT64', 'NUMERIC', 'FLOAT32', 'FLOAT64', 'BOOL'):
-            value_str = node_property.value
-        else:
-            value_str = f"\'''{node_property.value}\'''"
-        node_property_strings.append(f"n.{node_property.key}={value_str}")
+    node_property_clauses: list[str] = []
+    params_dict: dict = {}
+    param_types_dict: dict = {}
+
+    for i, node_property in enumerate(node_properties):
+        param_name = f"param_{i}"
+        node_property_clauses.append(f"n.{node_property.key} = @{param_name}")
+
+        # Convert value to native Python type
+        type_str = node_property.type_str
+        value = node_property.value
+
+        if type_str in ("INT64", "NUMERIC"):
+            value_casting = int(value)
+            param_type = spanner.param_types.INT64
+        elif type_str in ("FLOAT32", "FLOAT64"):
+            value_casting = float(value)
+            param_type = spanner.param_types.FLOAT64
+        elif type_str == "BOOL":
+            value_casting = value.lower() == "true"
+            param_type = spanner.param_types.BOOL
+        elif type_str == "STRING":
+            value_casting = str(value)
+            param_type = spanner.param_types.STRING
+        elif type_str == "DATE":
+            value_casting = datetime.strptime(value, "%Y-%m-%d").date()
+            param_type = spanner.param_types.DATE
+        elif type_str == "TIMESTAMP":
+            value_casting = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            param_type = spanner.param_types.TIMESTAMP
+
+        params_dict[param_name] = value_casting
+        param_types_dict[param_name] = param_type
+
+    filtered_uid = "STRING(TO_JSON(n).identifier) = @uid"
+    params_dict["uid"] = str(uid)
+    param_types_dict["uid"] = spanner.param_types.STRING
+
+    where_clauses = node_property_clauses + [filtered_uid]
+    where_clause_str = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
     query = f"""
         GRAPH {graph}
-        LET uid = "{uid}"
         MATCH (n{node_label_str})
-        WHERE {' and '.join(node_property_strings)} {'and' if node_property_strings else ''} STRING(TO_JSON(n).identifier) = uid
+        {where_clause_str}
         RETURN n
 
         NEXT
@@ -204,7 +241,11 @@ def execute_node_expansion(
         RETURN TO_JSON(e) as e, TO_JSON(d) as d
         """
 
-    return execute_query(project, instance, database, query, mock=False)
+    return execute_query(
+        project, instance, database, query, mock=False,
+        params=params_dict, param_types=param_types_dict
+    )
+
 
 def execute_query(
     project: str,
@@ -212,6 +253,8 @@ def execute_query(
     database: str,
     query: str,
     mock: bool = False,
+    params: Dict[str, Any] = None,
+    param_types: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """Executes a query against a database and formats the result.
 
@@ -233,7 +276,11 @@ def execute_query(
     """
     try:
         db_instance = get_database_instance(project, instance, database, mock)
-        result: SpannerQueryResult = db_instance.execute_query(query)
+        result: SpannerQueryResult = db_instance.execute_query(
+            query,
+            params=params,
+            param_types=param_types
+        )
 
         if len(result.rows) == 0 and result.err:
             error_message = f"Query error: \n{getattr(result.err, 'message', str(result.err))}"
@@ -257,7 +304,8 @@ def execute_query(
             }
 
         # Process a successful query result
-        nodes, edges = get_nodes_edges(result.data, result.fields, result.schema_json)
+        nodes, edges = get_nodes_edges(result.data, result.fields,
+                                       result.schema_json)
 
         return {
             "response": {
