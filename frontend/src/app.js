@@ -21,6 +21,7 @@ import { Sidebar } from './visualization/spanner-sidebar.js';
 import SpannerMenu from './visualization/spanner-menu.js';
 import SpannerTable from './visualization/spanner-table.js';
 import GraphVisualization from './visualization/spanner-forcegraph.js';
+import Helpers from './helper.js'
 
 class SpannerApp {
     /**
@@ -101,6 +102,9 @@ class SpannerApp {
                 }
 
                 const {error, response} = data;
+                if (error){
+                   Helpers.showToast(error);
+                }
 
                 this.loaderElement.classList.add('hidden');
 
