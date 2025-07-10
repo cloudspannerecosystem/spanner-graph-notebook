@@ -25,7 +25,7 @@ import sys
 from threading import Thread
 import re
 
-from IPython.core.display import HTML, JSON
+from IPython.core.display import HTML, JSON, Javascript
 from IPython.core.magic import Magics, magics_class, cell_magic
 from IPython.display import display, clear_output
 from networkx import DiGraph
@@ -39,6 +39,11 @@ from spanner_graphs.graph_server import (
     validate_node_expansion_request
 )
 from spanner_graphs.graph_visualization import generate_visualization_html
+from google.cloud import spanner_admin_instance_v1, spanner_admin_database_v1
+from googleapiclient.discovery import build
+from google.api_core.client_options import ClientOptions
+import pydata_google_auth
+
 
 singleton_server_thread: Thread = None
 
@@ -118,6 +123,61 @@ def receive_node_expansion_request(request: dict, params_str: str):
         return JSON(execute_node_expansion(params_str, request))
     except BaseException as e:
         return JSON({"error": e})
+    
+def get_default_credentials_with_project():
+    credentials, _ = pydata_google_auth.default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"], 
+        use_local_webserver=False
+    )
+    return credentials
+
+def fetch_all_gcp_resources(credentials):
+    result = {}
+    try:
+        crm_service = build("cloudresourcemanager", "v1", credentials=credentials)
+        projects_resp = crm_service.projects().list().execute()
+        projects = projects_resp.get("projects", [])
+
+        for project in projects:
+            project_id = project["projectId"]
+            result[project_id] = {"instances": {}}
+
+            client_options = ClientOptions(quota_project_id=project_id)
+            instance_client = spanner_admin_instance_v1.InstanceAdminClient(
+                credentials=credentials,
+                client_options=client_options
+            )
+
+            try:
+                instances = instance_client.list_instances(parent=f"projects/{project_id}")
+            except Exception as e:
+                print(f"[!] Skipping project {project_id} due to instance error: {e}")
+                continue
+
+            for instance in instances:
+                instance_id = instance.name.split("/")[-1]
+                result[project_id]["instances"][instance_id] = []
+
+                db_client = spanner_admin_database_v1.DatabaseAdminClient(
+                    credentials=credentials,
+                    client_options=client_options
+                )
+
+                try:
+                    dbs = db_client.list_databases(
+                        parent=f"projects/{project_id}/instances/{instance_id}"
+                    )
+                    for db in dbs:
+                        db_id = db.name.split("/")[-1]
+                        result[project_id]["instances"][instance_id].append(db_id)
+                except Exception as e:
+                    print(f"[!] Skipping databases for {project_id}/{instance_id}: {e}")
+                    continue
+    except Exception as e:
+        print(f"[!] Error fetching GCP resources: {e}")
+        # Return an empty result if there's a broader error during fetching
+        return {} 
+    return result
 
 @magics_class
 class NetworkVisualizationMagics(Magics):
@@ -140,7 +200,7 @@ class NetworkVisualizationMagics(Magics):
             if not alive:
                 singleton_server_thread = GraphServer.init()
 
-    def visualize(self):
+    def visualize(self, show_config_popup=False):
         """Helper function to create and display the visualization"""
         # Extract the graph name from the query (if present)
         graph = ""
@@ -159,7 +219,9 @@ class NetworkVisualizationMagics(Magics):
                 "database": self.args.database,
                 "mock": self.args.mock,
                 "graph": graph
-            }))
+            }),
+            show_config_on_load=show_config_popup
+        )
         display(HTML(html_content))
 
     @cell_magic
@@ -179,6 +241,70 @@ class NetworkVisualizationMagics(Magics):
                             help="Use mock database")
 
         try:
+            if not line.strip():
+                self.args = argparse.Namespace(
+                    project="",
+                    instance="",
+                    database="",
+                    mock=False
+                )
+                self.cell = cell
+                display(HTML("""
+                <div id="loader-container" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100px;
+                    font-family: Arial, sans-serif;
+                ">
+                <div style="text-align: center;">
+                    <div class="loader" style="
+                        border: 6px solid #f3f3f3;
+                        border-top: 6px solid #4285F4;
+                        border-radius: 50%;
+                        width: 40px;
+                        height: 40px;
+                        animation: spin 1s linear infinite;
+                        margin: auto;
+                    "></div>
+                    <div style="margin-top: 10px;">Authenticating and fetching GCP resources...</div>
+                </div>
+                <style>
+                    @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                    }
+                </style>
+                </div>
+            """))
+                try:
+                    credentials = get_default_credentials_with_project()
+                    gcp_data = fetch_all_gcp_resources(credentials)
+                except Exception as e:
+                    gcp_data = {}
+                    print(f"Error fetching GCP resources: {e}")
+                
+                display(Javascript("""
+                    const loader = document.getElementById('loader-container');
+                    if (loader) loader.remove();
+                    """))
+
+                html_content = generate_visualization_html(
+                    query=cell,
+                    port=GraphServer.port,
+                    params=json.dumps({
+                        "project": "",
+                        "instance": "",
+                        "database": "",
+                        "mock": False,
+                        "graph": ""
+                    }),
+                    gcp_data=json.dumps(gcp_data),  # pass to HTML
+                    show_config_on_load=True
+                )
+                display(HTML(html_content))
+                return
+
             args = parser.parse_args(line.split())
             if not args.mock:
                 if not (args.project and args.instance and args.database):
@@ -189,7 +315,7 @@ class NetworkVisualizationMagics(Magics):
                     print("Error: Query is required.")
                     return
 
-            self.args = parser.parse_args(line.split())
+            self.args = args
             self.cell = cell
             self.database = get_database_instance(
                 self.args.project,
@@ -197,7 +323,7 @@ class NetworkVisualizationMagics(Magics):
                 self.args.database,
                 mock=self.args.mock)
             clear_output(wait=True)
-            self.visualize()
+            self.visualize(show_config_popup=False)
         except BaseException as e:
             print(f"Error: {e}")
             print("Usage: %%spanner_graph --project PROJECT_ID "

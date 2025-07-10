@@ -17,6 +17,7 @@
 import base64
 import uuid
 import os
+import json
 
 from jinja2 import Template
 
@@ -44,7 +45,7 @@ def _load_image(path: list[str]) -> str:
         with open(file_path, 'rb') as file:
             return base64.b64decode(file.read()).decode('utf-8')
 
-def generate_visualization_html(query: str, port: int, params: str):
+def generate_visualization_html(query: str, port: int, params: str, show_config_on_load: bool = False, gcp_data: str = "{}"):
         # Get the directory of the current file (magics.py)
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,7 +58,7 @@ def generate_visualization_html(query: str, port: int, params: str):
             search_dir = parent
 
         template_content = _load_file([search_dir, 'frontend', 'static', 'jupyter.html'])
-        
+
         # Load the JavaScript bundle directly
         js_file_path = os.path.join(search_dir, 'third_party', 'index.js')
         try:
@@ -80,6 +81,8 @@ def generate_visualization_html(query: str, port: int, params: str):
             query=query,
             params=params,
             port=port,
+            show_config_on_load=show_config_on_load,
+            gcp_data=gcp_data,
             id=uuid.uuid4().hex # Prevent html/js selector collisions between cells
         )
 
