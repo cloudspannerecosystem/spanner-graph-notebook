@@ -1,4 +1,4 @@
-<!--
+<!-- 
 Copyright 2025 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -198,18 +198,18 @@ limitations under the License.
     }
 </style>
 
-<div class="visualization-wrapper" data-id="{{ id }}">
-    <button class="config-toggle" onclick="toggleConfig(this)">Re Configure</button>
+<div class="visualization-wrapper" data-id="{{ id }}" data-show-config="{{ show_config_on_load }}">
+    <button class="config-toggle" onclick="toggleConfig_{{ id }}(this)">Re-Configure</button>
 
     <div class="config-overlay">
-        <button class="close-btn" onclick="hideConfig(this)">&times;</button>
+        <button class="close-btn" onclick="hideConfig_{{ id }}(this)">&times;</button>
         <h3>Configure Visualization</h3>
 
         <form class="config-form">
             <div class="form-group">
                 <label>Project ID</label>
                 <div class="dropdown-container">
-                    <input type="text" class="project" placeholder="Search Project ID..." onfocus="populateDropdown(this, 'project')" oninput="filterDropdown(this, 'project')">
+                    <input type="text" class="project" placeholder="Search Project ID..." onfocus="populateDropdown_{{ id }}(this, 'project')" oninput="filterDropdown_{{ id }}(this, 'project')">
                     <div class="dropdown-list project-list"></div>
                 </div>
             </div>
@@ -217,7 +217,7 @@ limitations under the License.
             <div class="form-group">
                 <label>Instance ID</label>
                 <div class="dropdown-container">
-                    <input type="text" class="instance" placeholder="Search Instance ID..." onfocus="populateDropdown(this, 'instance')" oninput="filterDropdown(this, 'instance')">
+                    <input type="text" class="instance" placeholder="Search Instance ID..." onfocus="populateDropdown_{{ id }}(this, 'instance')" oninput="filterDropdown_{{ id }}(this, 'instance')">
                     <div class="dropdown-list instance-list"></div>
                 </div>
             </div>
@@ -225,7 +225,7 @@ limitations under the License.
             <div class="form-group full-width">
                 <label>Database</label>
                 <div class="dropdown-container">
-                    <input type="text" class="database" placeholder="Search Database..." onfocus="populateDropdown(this, 'database')" oninput="filterDropdown(this, 'database')">
+                    <input type="text" class="database" placeholder="Search Database..." onfocus="populateDropdown_{{ id }}(this, 'database')" oninput="filterDropdown_{{ id }}(this, 'database')">
                     <div class="dropdown-list database-list"></div>
                 </div>
             </div>
@@ -246,8 +246,8 @@ LIMIT 50"></textarea>
             </div>
 
             <div class="config-buttons">
-                <button type="button" class="cancel-btn" onclick="hideConfig(this)">Cancel</button>
-                <button type="button" class="visualize-btn" onclick="applyConfig(this)">Visualize Graph</button>
+                <button type="button" class="cancel-btn" onclick="hideConfig_{{ id }}(this)">Cancel</button>
+                <button type="button" class="visualize-btn" onclick="applyConfig_{{ id }}(this)">Visualize Graph</button>
             </div>
         </form>
     </div>
@@ -258,139 +258,161 @@ LIMIT 50"></textarea>
 {{ bundled_js_code }}
 
 <script>
-    const gcpData = {{ gcp_data | safe }};
-    const port = {{ port }};
-    const queryData = {{ query | tojson }};
-    const params = {{ params | tojson }};
-    const showConfig = {{ show_config_on_load | tojson }};
+    (function() {
+        const gcpData_{{ id }} = {{ gcp_data | safe }};
+        const port_{{ id }} = {{ port }};
+        const queryData_{{ id }} = {{ query | tojson }};
+        const params_{{ id }} = {{ params | safe }};
+        const showConfig_{{ id }} = {{ show_config_on_load | tojson }};
+        const wrapperId_{{ id }} = "{{ id }}";
 
-    function getWrapper(el) {
-        return el.closest('.visualization-wrapper');
-    }
-
-    function toggleConfig(button) {
-        const wrapper = getWrapper(button);
-        wrapper.querySelector('.config-overlay').classList.toggle('show');
-    }
-
-    function hideConfig(button) {
-        const wrapper = getWrapper(button);
-        wrapper.querySelector('.config-overlay').classList.remove('show');
-    }
-
-    function applyConfig(button) {
-        const wrapper = getWrapper(button);
-        const project = wrapper.querySelector('.project').value.trim();
-        const instance = wrapper.querySelector('.instance').value.trim();
-        const database = wrapper.querySelector('.database').value.trim();
-        const query = wrapper.querySelector('.query').value.trim();
-        const mock = wrapper.querySelector('.mock').checked;
-
-        if (!mock && (!project || !instance || !database)) {
-            alert('Please fill in Project ID, Instance ID, and Database.');
-            return;
+        function getWrapper_{{ id }}(el) {
+            return el.closest(`[data-id="${wrapperId_{{ id }}}"]`);
         }
 
-        if (!query) {
-            alert('Please enter a query.');
-            return;
-        }
+        window.toggleConfig_{{ id }} = function(button) {
+            const wrapper = getWrapper_{{ id }}(button);
+            wrapper.querySelector('.config-overlay').classList.toggle('show');
+        };
 
-        let graph = "";
-        if (query.toUpperCase().includes("GRAPH ")) {
-            const match = query.match(/GRAPH\s+(\w+)/i);
-            if (match) {
-                graph = match[1];
+        window.hideConfig_{{ id }} = function(button) {
+            const wrapper = getWrapper_{{ id }}(button);
+            wrapper.querySelector('.config-overlay').classList.remove('show');
+        };
+
+        window.applyConfig_{{ id }} = function(button) {
+            const wrapper = getWrapper_{{ id }}(button);
+            const project = wrapper.querySelector('.project').value.trim();
+            const instance = wrapper.querySelector('.instance').value.trim();
+            const database = wrapper.querySelector('.database').value.trim();
+            const query = wrapper.querySelector('.query').value.trim();
+            const mock = wrapper.querySelector('.mock').checked;
+
+            if (!mock && (!project || !instance || !database)) {
+                alert('Please fill in Project ID, Instance ID, and Database.');
+                return;
             }
-        }
 
-        const newParams = { project, instance, database, mock, graph };
-        const mount = wrapper.querySelector('.graph-container');
-        mount.innerHTML = '';
+            if (!query) {
+                alert('Please enter a query.');
+                return;
+            }
 
-        try {
-            new SpannerApp({
-                id: wrapper.dataset.id,
-                mount: mount,
-                port: port,
-                params: JSON.stringify(newParams),
-                query: query
+            let graph = "";
+            if (query.toUpperCase().includes("GRAPH ")) {
+                const match = query.match(/GRAPH\s+(\w+)/i);
+                if (match) {
+                    graph = match[1];
+                }
+            }
+
+            const newParams = { project, instance, database, mock, graph };
+            const mount = wrapper.querySelector('.graph-container');
+            mount.innerHTML = '';
+
+            try {
+                new SpannerApp({
+                    id: wrapperId_{{ id }},
+                    mount: mount,
+                    port: port_{{ id }},
+                    params: JSON.stringify(newParams),
+                    query: query
+                });
+            } catch (err) {
+                console.error(err);
+                mount.innerHTML = `<div style="padding: 20px; color: red;">Error: ${err.message}</div>`;
+            }
+
+            hideConfig_{{ id }}(button);
+        };
+
+        window.populateDropdown_{{ id }} = function(input, field) {
+            const wrapper = getWrapper_{{ id }}(input);
+            const project = wrapper.querySelector('.project').value;
+            const instance = wrapper.querySelector('.instance').value;
+
+            let items = [];
+            if (field === 'project') {
+                items = Object.keys(gcpData_{{ id }});
+            } else if (field === 'instance') {
+                if (gcpData_{{ id }}[project]) {
+                    items = Object.keys(gcpData_{{ id }}[project].instances || {});
+                }
+            } else if (field === 'database') {
+                if (gcpData_{{ id }}[project] && gcpData_{{ id }}[project].instances[instance]) {
+                    items = gcpData_{{ id }}[project].instances[instance];
+                }
+            }
+
+            const listEl = wrapper.querySelector(`.${field}-list`);
+            listEl.innerHTML = '';
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.textContent = item;
+                div.onclick = () => {
+                    wrapper.querySelector(`.${field}`).value = item;
+                    listEl.style.display = 'none';
+                    if (field === 'project') populateDropdown_{{ id }}(input, 'instance');
+                    if (field === 'instance') populateDropdown_{{ id }}(input, 'database');
+                };
+                listEl.appendChild(div);
             });
-        } catch (err) {
-            console.error(err);
-            mount.innerHTML = `<div style="padding: 20px; color: red;">Error: ${err.message}</div>`;
-        }
 
-        hideConfig(button);
-    }
+            listEl.style.display = 'block';
+        };
 
-    // Init on load
-    document.querySelectorAll('.visualization-wrapper').forEach(wrapper => {
-        const mount = wrapper.querySelector('.graph-container');
-
-        if (showConfig) {
-            wrapper.querySelector('.config-overlay').classList.add('show');
-        } else {
-            new SpannerApp({
-                id: wrapper.dataset.id,
-                mount,
-                port,
-                params: JSON.stringify(params),
-                query: queryData
+        window.filterDropdown_{{ id }} = function(input, field) {
+            populateDropdown_{{ id }}(input, field);
+            const wrapper = getWrapper_{{ id }}(input);
+            const filter = input.value.toLowerCase();
+            const listEl = wrapper.querySelector(`.${field}-list`);
+            Array.from(listEl.children).forEach(child => {
+                child.style.display = child.textContent.toLowerCase().includes(filter) ? 'block' : 'none';
             });
-        }
-    });
+        };
 
-    // Dropdowns
-    function populateDropdown(input, field) {
-        const wrapper = getWrapper(input);
-        const project = wrapper.querySelector('.project').value;
-        const instance = wrapper.querySelector('.instance').value;
+        // Initialize this specific instance
+        const wrapper = document.querySelector(`[data-id="${wrapperId_{{ id }}}"]`);
+        if (wrapper) {
+            const mount = wrapper.querySelector('.graph-container');
 
-        let items = [];
-        if (field === 'project') {
-            items = Object.keys(gcpData);
-        } else if (field === 'instance') {
-            if (gcpData[project]) {
-                items = Object.keys(gcpData[project].instances || {});
+            // Pre-populate form fields with current params
+            const projectInput = wrapper.querySelector('.project');
+            const instanceInput = wrapper.querySelector('.instance');
+            const databaseInput = wrapper.querySelector('.database');
+            const queryInput = wrapper.querySelector('.query');
+            const mockInput = wrapper.querySelector('.mock');
+
+            if (projectInput) projectInput.value = params_{{ id }}.project || '';
+            if (instanceInput) instanceInput.value = params_{{ id }}.instance || '';
+            if (databaseInput) databaseInput.value = params_{{ id }}.database || '';
+            if (queryInput) queryInput.value = queryData_{{ id }} || '';
+            if (mockInput) mockInput.checked = params_{{ id }}.mock || false;
+
+            if (showConfig_{{ id }}) {
+                wrapper.querySelector('.config-overlay').classList.add('show');
+            } else {
+                new SpannerApp({
+                    id: wrapperId_{{ id }},
+                    mount,
+                    port: port_{{ id }},
+                    params: JSON.stringify(params_{{ id }}),
+                    query: queryData_{{ id }}
+                });
             }
-        } else if (field === 'database') {
-            if (gcpData[project] && gcpData[project].instances[instance]) {
-                items = gcpData[project].instances[instance];
+        }
+
+        // ESC key handler for this specific instance
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const wrapper = document.querySelector(`[data-id="${wrapperId_{{ id }}}"]`);
+                if (wrapper) {
+                    const overlay = wrapper.querySelector('.config-overlay.show');
+                    if (overlay) {
+                        overlay.classList.remove('show');
+                    }
+                }
             }
-        }
-
-        const listEl = wrapper.querySelector(`.${field}-list`);
-        listEl.innerHTML = '';
-        items.forEach(item => {
-            const div = document.createElement('div');
-            div.textContent = item;
-            div.onclick = () => {
-                wrapper.querySelector(`.${field}`).value = item;
-                listEl.style.display = 'none';
-                if (field === 'project') populateDropdown(input, 'instance');
-                if (field === 'instance') populateDropdown(input, 'database');
-            };
-            listEl.appendChild(div);
         });
-
-        listEl.style.display = 'block';
-    }
-
-    function filterDropdown(input, field) {
-        populateDropdown(input, field);
-        const wrapper = getWrapper(input);
-        const filter = input.value.toLowerCase();
-        const listEl = wrapper.querySelector(`.${field}-list`);
-        Array.from(listEl.children).forEach(child => {
-            child.style.display = child.textContent.toLowerCase().includes(filter) ? 'block' : 'none';
-        });
-    }
-
-    // ESC key close
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.config-overlay.show').forEach(el => el.classList.remove('show'));
-        }
-    });
+    })();
 </script>
