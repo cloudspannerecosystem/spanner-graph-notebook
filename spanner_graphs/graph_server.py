@@ -28,6 +28,7 @@ from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.database import SpannerQueryResult
 from google.cloud import spanner
+from spanner_graphs.gcp_helper import GcpHelper
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
@@ -42,8 +43,6 @@ PROPERTY_TYPE_SET = {
     'STRING',
     'TIMESTAMP'
 }
-saved_user_config = {}
-
 
 class NodePropertyForDataExploration:
     def __init__(self, key: str, value: Union[str, int, float, bool], type_str: str):
@@ -333,9 +332,7 @@ class GraphServer:
         "post_ping": "/post_ping",
         "post_query": "/post_query",
         "post_node_expansion": '/post_node_expansion',
-        "oauth2callback": '/oauth2callback',
-        "save_config": '/save_config',
-        "get_saved_config": '/get_saved_config'
+        "gcp_resources": '/gcp_resources'
     }
 
     _server = None
@@ -474,53 +471,21 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_error_response(e)
             return
 
-    def handle_oauth2callback(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        html = """
-        <html><body><script>
-            // OPTIMIZED: Parse access_token directly from URL fragment
-            const urlParams = new URLSearchParams(window.location.hash.substring(1));
-            const access_token = urlParams.get("access_token");
-            if (access_token) {
-                window.opener.postMessage({ type: "oauth-token", access_token }, "*");
-                window.close();
-            } else {
-                // Fallback for code flow (if needed)
-                const urlSearchParams = new URLSearchParams(window.location.search);
-                const code = urlSearchParams.get("code");
-                if (code) {
-                    window.opener.postMessage({ type: "oauth-code", code }, "*");
-                    window.close();
-                }
-            }
-        </script></body></html>
-        """
-        self.wfile.write(html.encode("utf-8"))
-
-    def handle_save_user_data(self):
-        print("handle user data function")
-        global saved_user_config
+    def get_gcp_resources(self):
         try:
-            data = self.parse_post_data()
-            saved_user_config = data
-            self.do_json_response({"status": "saved"})
+            # Always fetch fresh data
+            credentials = GcpHelper.get_default_credentials_with_project()
+            gcp_data = GcpHelper.fetch_all_gcp_resources(credentials)
+            self.do_json_response(gcp_data)
         except Exception as e:
             self.do_error_response(str(e))
-            
-    def get_saved_user_data(self):
-        print("get user data")
-        global saved_user_config
-        self.do_data_response(saved_user_config)
+        
     
     def do_GET(self):
         if self.path == GraphServer.endpoints["get_ping"]:
             self.handle_get_ping()
-        elif self.path == GraphServer.endpoints["oauth2callback"]:
-            self.handle_oauth2callback()
-        elif self.path == GraphServer.endpoints["get_saved_config"]:
-            self.get_saved_user_data()
+        elif self.path == GraphServer.endpoints["gcp_resources"]:
+            self.get_gcp_resources()
         else:
             super().do_GET()
 
@@ -531,8 +496,5 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_post_query()
         elif self.path == GraphServer.endpoints["post_node_expansion"]:
             self.handle_post_node_expansion()
-        elif self.path == GraphServer.endpoints['save_config']:
-            print("call save config api")
-            self.handle_save_user_data()
 
 atexit.register(GraphServer.stop_server)

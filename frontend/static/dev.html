@@ -388,94 +388,110 @@ limitations under the License.
             font-size: 12px;
             pointer-events: none;
         }
-
-        .custom-dropdown {
-            position: relative;
-        }
-
-        .custom-dropdown input {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 14px;
-            background: transparent;
-            box-sizing: border-box;
-        }
-
-        .dropdown-list {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            border: 1px solid var(--border-color);
-            background: var(--form-background);
-            max-height: 200px;
-            overflow-y: auto;
-            border-radius: 4px;
-            box-shadow: 0 4px 12px var(--shadow-color);
-            z-index: 999;
-        }
-
-        .dropdown-list div {
-            padding: 8px 12px;
-            cursor: pointer;
-        }
-
-        .dropdown-list div:hover {
-            background-color: var(--hover-color);
-            color: #fff;
-        }
-
-        .hidden {
-            display: none;
-        }
-        .toast {
+        .loader {
             position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #e74c3c; /* red for error */
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 6px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            font-size: 14px;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             z-index: 9999;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease, transform 0.3s ease;
+            transition: opacity 0.3s ease;
         }
 
-        .toast.show {
+        .loader.show {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
             pointer-events: all;
         }
 
-        .toast.hidden {
-            opacity: 0;
-            transform: translateX(-50%) translateY(20px);
-        }
-        .loader {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 18px;
-            padding: 12px 24px;
-            background: white;
-            z-index: 10000;
+        .loader-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
         }
 
-        .loader.hidden {
-            display: none;
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loader-text {
+            font-size: 16px;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        .custom-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        margin-top: 4px;
+        background-color: white;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        z-index: 1000;
+        max-height: 150px;
+        overflow-y: auto;
+        display: none; /* initially hidden */
+    }
+
+    .dropdown-item {
+        padding: 8px 12px;
+        font-size: 14px;
+        color: var(--text-color);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f1f3f4;
+    }
+    .toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #e74c3c; /* red for error */
+        color: #fff;
+        padding: 12px 24px;
+        border-radius: 6px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        font-size: 14px;
+        z-index: 9999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: all;
+    }
+
+    .toast.hidden {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
     </style>
-
     <script type="module" src="../src/index.js"></script>
-    <script type="module" src="./dev.js"></script>
-    <script type="module" src="./constent.js"></script>
     <script type="module">
         import Helpers from '../src/helper.js';
         window.Helpers = Helpers;
@@ -484,9 +500,14 @@ limitations under the License.
         import GraphServer from '../src/graph-server.js';
         window.graphServer = new GraphServer(8975);
     </script>
-
 </head>
 <body>
+    <div id="loader" class="loader">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <div class="loader-text">Authenticating...</div>
+        </div>
+    </div>
     <div id="toast" class="toast hidden"></div>
     <div class="visualization-container">
         <div class="mount-spanner-test"></div>
@@ -496,13 +517,7 @@ limitations under the License.
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"></path>
                 </svg>
-                Configure
-            </button>
-             <button class="control-button" onclick="getSavedConfig()" title="Configure (Cmd/Ctrl + K)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"></path>
-                </svg>
-                Re Configure
+                Re-Configure
             </button>
         </div>
     </div>
@@ -518,61 +533,24 @@ limitations under the License.
         <div class="command-content">
             <form id="configForm" onsubmit="handleSubmit(event)">
                 <div class="command-section">
-                    <!-- <div class="command-section-title">Connection Settings</div> -->
                     <div class="connection-grid">
-                        <div class="connection-field custom-dropdown">
-                            <label for="project">Project ID</label>
-                            <input
-                                type="text"
-                                id="project"
-                                name="project"
-                                value="my-project"
-                                placeholder="Enter project ID"
-                                autocomplete="off"
-                                onfocus="showProjetDropdown()"
-                                oninput="filterProjects()"
-                            />
-                            <div id="projectDropdown" class="dropdown-list hidden"></div>
+                        <div class="connection-field">
+                            <label for="project">Project ID</label><br />
+                            <input type="text" id="project" placeholder="Select a project" autocomplete="off">
+                            <div id="project-dropdown" class="custom-dropdown"></div>
                         </div>
 
-                        <div class="connection-field custom-dropdown">
-                            <label for="instance">Instance ID</label>
-                            <input
-                                type="text"
-                                id="instance"
-                                name="instance"
-                                value="my-instance"
-                                placeholder="Enter instance ID"
-                                autocomplete="off"
-                                onfocus="showInstanceDropdown()"
-                                oninput="filterInstance()"
-                            />
-                            <div id="instanceDropdown" class="dropdown-list hidden"></div>
+                        <div class="connection-field">
+                            <label for="instance">Instance ID</label><br />
+                            <input type="text" id="instance" placeholder="Select an instance" autocomplete="off">
+                            <div id="instance-dropdown" class="custom-dropdown"></div>
                         </div>
 
-                        <!-- <div class="connection-field">
-                            <label for="instance">Instance ID</label>
-                            <input type="text" id="instance" value="my-instance" placeholder="Enter instance ID">
-                        </div> -->
-
-                        <div class="connection-field custom-dropdown">
-                            <label for="database">Database</label>
-                            <input
-                                type="text"
-                                id="database"
-                                name="database"
-                                value="my-database"
-                                placeholder="Enter database name"
-                                autocomplete="off"
-                                onfocus="showDatabaseDropdown()"
-                                oninput="filterDatabase()"
-                            />
-                            <div id="databaseDropdown" class="dropdown-list hidden"></div>
+                        <div class="connection-field">
+                            <label for="database">Database</label><br />
+                            <input type="text" id="database" placeholder="Select a database" autocomplete="off">
+                            <div id="database-dropdown" class="custom-dropdown"></div>
                         </div>
-                        <!-- <div class="connection-field">
-                            <label for="database">Database</label>
-                            <input type="text" id="database" value="my-database" placeholder="Enter database name">
-                        </div> -->
                     </div>
                     <div class="mock-toggle">
                         <input type="checkbox" id="mock" checked>
@@ -593,239 +571,196 @@ LIMIT 50"></textarea>
                 <div class="action-buttons">
                     <button type="button" class="action-button secondary" onclick="toggleCommandPalette()">Cancel</button>
                     <button type="submit" class="action-button primary">Visualize Graph</button>
-                    <button type="button" class="action-button primary" id="google-login-btn">Login with Google</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
-        let googleAccessToken = null;
-        let allProjects = [];
-        let allInstances = [];
-        let allDatabases = []
-
-        function extractId(text) {
-            const parts = text.split("/");
-            return parts[parts.length - 1];
-        }
-
-        window.onload = () => {
-            window.addEventListener("message", (event) => {
-                if (event.data.type === "oauth-token") {
-                googleAccessToken = event.data.access_token;
-                fetchProjects(googleAccessToken);
-                }
-            });
-            loadSavedConfig();
-        };
-
-        function fetchProjects(token) {
-            showLoader()
-            fetch(API_ENDPOINTS.getProjects, {
-                method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
-                }
-                return res.json();
-            })
-            .then(data => {
-                if (data.projects && data.projects.length > 0) {
-                    allProjects = (data.projects || []).map((p) => p.projectId);
-                    populateProjectDropdown(allProjects, token);
-                }
-                else{
-                    document.getElementById("project").value = ""
-                }
-            })
-            .catch(error => {
-                Helpers.showToast(error.message);
-            })
-            .finally(()=>{
-                hideLoader()
-            })
-
-        }
-
-        function populateProjectDropdown(projects, token) {
-            const projectDropdown = document.getElementById("projectDropdown");
-            projectDropdown.innerHTML = "";
-
-            projects.forEach((projectId) => {
-                const div = document.createElement("div");
-                div.textContent = projectId;
-                div.onclick = () => {
-                    document.getElementById("project").value = projectId;
-                    hideProjectDropdown();
-                    fetchInstances(projectId, token)
-                };
-                projectDropdown.appendChild(div);
-            });
-        }
-
-        function fetchInstances(projectId, token){
-            showLoader()
-            fetch(API_ENDPOINTS.getInstances(projectId), {
-                method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
-                }
-                return res.json();
-            })
-            .then(res => {
-                if (res.instances && res.instances.length > 0){
-                    allInstances = (res.instances || []).map((instance)=> extractId(instance.name))
-                    populateInstanceDropdown(allInstances, token, projectId)
-                }
-                else{
-                    document.getElementById("instance").value = ""
-                }
-            })
-            .catch(error =>{
-                Helpers.showToast(error.message);
-            })
-            .finally(()=>{
-                hideLoader()
-            })
-        }
-
-        function populateInstanceDropdown(instances, token, projectId){
-            const instanceDropdown = document.getElementById('instanceDropdown')
-            instanceDropdown.innerHTML = "";
-
-            instances.forEach((instanceId) => {
-                const div = document.createElement('div')
-                div.textContent = instanceId
-                div.onclick = () => {
-                    document.getElementById('instance').value = instanceId
-                    hideInstanceDropdown()
-                    fetchDatabases(instanceId, token, projectId)
-                }
-                instanceDropdown.appendChild(div)
-            }) 
-        }
-
-        function fetchDatabases(instanceId, token, projectId){
-            showLoader()
-            fetch(API_ENDPOINTS.getDatabases(projectId, instanceId), {
-                method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            })
-            .then(res =>{
-                if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
-                }
-                return res.json();
-            })
-            .then(res => {
-                if (res.databases && res.databases.length > 0){
-                    allDatabases = (res.databases || []).map(db => extractId(db.name))
-                    populateDatabaseDropdown(allDatabases)
-                }
-                else{
-                    document.getElementById("database").value = ""
-                }
-            })
-            .catch((error)=>{
-                Helpers.showToast(error.message);
-            })
-            .finally(()=>{
-                hideLoader()
-            })
-        }
-
-        function populateDatabaseDropdown(databases){
-            const dbDropdown = document.getElementById("databaseDropdown")
-            dbDropdown.innerHTML = ""
-
-            databases.forEach((databaseId) => {
-                const div = document.createElement("div")
-                div.textContent = databaseId
-                div.onclick = () =>{
-                    document.getElementById("database").value = databaseId
-                    hidedbDropdown()
-                }
-                dbDropdown.appendChild(div)
-            })
-        }
-
-        function filterProjects() {
-            const inputVal = document.getElementById("project").value.toLowerCase();
-            const filtered = allProjects.filter((p) =>
-                p.toLowerCase().includes(inputVal)
-            );
-            populateProjectDropdown(filtered);
-            showProjetDropdown();
-        }
-
-        function filterInstance() {
-            const inputVal = document.getElementById("instance").value.toLowerCase();
-            const filtered = allInstances.filter((instance) =>
-                instance.toLowerCase().includes(inputVal)
-            );
-            populateInstanceDropdown(filtered);
-            showInstanceDropdown();
-        }
-
-        function filterDatabase() {
-            const inputVal = document.getElementById("database").value.toLowerCase
-            const filtered = allDatabases.filter((database) =>{
-                database.toLowerCase().includes(inputVal)
-            })
-            populateDatabaseDropdown(filtered)
-            showDatabaseDropdown()
-        }
-        
-
-        function showProjetDropdown() {
-            hideInstanceDropdown()
-            hidedbDropdown()
-            document.getElementById("projectDropdown").classList.remove("hidden");
-        }
-
-        function hideProjectDropdown() {
-            document.getElementById("projectDropdown").classList.add("hidden");
-        }
-
-        function showInstanceDropdown() {
-            hideProjectDropdown()
-            hidedbDropdown()
-            document.getElementById("instanceDropdown").classList.remove("hidden");
-        }
-
-        function hideInstanceDropdown() {
-            document.getElementById("instanceDropdown").classList.add("hidden");
-        }
-
-        function showDatabaseDropdown(){
-            hideProjectDropdown()
-            hideInstanceDropdown()
-            document.getElementById("databaseDropdown").classList.remove("hidden");
-        }
-
-        function hidedbDropdown() {
-            document.getElementById("databaseDropdown").classList.add("hidden");
-        }
-
-        document.addEventListener("click", function (e) {
-        if (!e.target.closest(".custom-dropdown")) {
-            hideProjectDropdown();
-            hideInstanceDropdown()
-            hidedbDropdown()
-        }
+        window.addEventListener("DOMContentLoaded", async () => {
+            showLoader();
+            try {
+                await gcpResources();
+                setupDropdownFocusHandlers(); 
+                setupDropdownFiltering();
+            } catch (err) {
+                Helpers.showToast(err.message)
+                toggleCommandPalette();
+            } finally {
+                hideLoader();
+            }
         });
+
+        function showLoader() {
+            const loader = document.getElementById('loader');
+            loader.classList.add('show');
+        }
+
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            loader.classList.remove('show');
+        }
+
+        gcpData={}
+        function gcpResources(){
+            return fetch(graphServer.buildRoute(graphServer.endpoints.gcpResources), {
+                method: "GET",
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to fetch GCP resources");
+                return res.json();
+            })
+            .then((res) => {
+                gcpData = res;
+                Helpers.showToast("Fetched GCP Resources")
+
+                document.getElementById("project").value = "";
+                document.getElementById("instance").value = "";
+                document.getElementById("database").value = "";
+
+                setupDropdowns();
+                
+                return res;
+            })
+            .catch(err => {
+                Helpers.showToast(err.message);
+            });
+        }
+
+        function createDropdown(dropdownId, items, onClick) {
+            const dropdown = document.getElementById(dropdownId);
+            dropdown.innerHTML = '';
+            items.forEach(item => {
+                const option = document.createElement('div');
+                option.textContent = item;
+                option.classList.add('dropdown-item');
+                option.style.padding = "6px";
+                option.style.cursor = "pointer";
+                option.addEventListener('click', () => onClick(item));
+                dropdown.appendChild(option);
+            });
+        }
+
+        function setupDropdownFocusHandlers() {
+            document.getElementById("project").addEventListener("focus", () => {
+                hideAllDropdowns();
+                document.getElementById("project-dropdown").style.display = "block";
+            });
+
+            document.getElementById("instance").addEventListener("focus", () => {
+                hideAllDropdowns();
+                document.getElementById("instance-dropdown").style.display = "block";
+            });
+
+            document.getElementById("database").addEventListener("focus", () => {
+                hideAllDropdowns();
+                document.getElementById("database-dropdown").style.display = "block";
+            });
+
+            document.addEventListener("click", (e) => {
+                const isInput = ["project", "instance", "database"].some(id =>
+                    document.getElementById(id).contains(e.target)
+                );
+                const isDropdown = ["project-dropdown", "instance-dropdown", "database-dropdown"].some(id =>
+                    document.getElementById(id).contains(e.target)
+                );
+                if (!isInput && !isDropdown) {
+                    hideAllDropdowns();
+                }
+            });
+        }
+
+        function hideAllDropdowns() {
+            document.getElementById("project-dropdown").style.display = "none";
+            document.getElementById("instance-dropdown").style.display = "none";
+            document.getElementById("database-dropdown").style.display = "none";
+        }
+
+        function setupDropdowns() {
+            const projects = Object.keys(gcpData);
+            createDropdown('project-dropdown', projects, (selectedProject) => {
+                document.getElementById('project').value = selectedProject;
+                document.getElementById('instance').value = '';
+                document.getElementById('database').value = '';
+                document.getElementById('instance-dropdown').innerHTML = '';
+                document.getElementById('database-dropdown').innerHTML = '';
+
+                const instances = Object.keys(gcpData[selectedProject].instances);
+                createDropdown('instance-dropdown', instances, (selectedInstance) => {
+                    document.getElementById('instance').value = selectedInstance;
+                    document.getElementById('database').value = '';
+                    document.getElementById('database-dropdown').innerHTML = '';
+
+                    const databases = gcpData[selectedProject].instances[selectedInstance];
+                    createDropdown('database-dropdown', databases, (selectedDb) => {
+                        document.getElementById('database').value = selectedDb;
+                    });
+                });
+            });
+        }
+
+        function setupDropdownFiltering() {
+            document.getElementById("project").addEventListener("input", (e) => {
+                const value = e.target.value.toLowerCase();
+                const filtered = Object.keys(gcpData).filter(p => p.toLowerCase().includes(value));
+                createDropdown('project-dropdown', filtered, (selectedProject) => {
+                    document.getElementById('project').value = selectedProject;
+                    document.getElementById('instance').value = '';
+                    document.getElementById('database').value = '';
+                    document.getElementById('instance-dropdown').innerHTML = '';
+                    document.getElementById('database-dropdown').innerHTML = '';
+
+                    const instances = Object.keys(gcpData[selectedProject].instances);
+                    createDropdown('instance-dropdown', instances, (selectedInstance) => {
+                        document.getElementById('instance').value = selectedInstance;
+                        document.getElementById('database').value = '';
+                        document.getElementById('database-dropdown').innerHTML = '';
+
+                        const databases = gcpData[selectedProject].instances[selectedInstance];
+                        createDropdown('database-dropdown', databases, (selectedDb) => {
+                            document.getElementById('database').value = selectedDb;
+                        });
+                    });
+                });
+                document.getElementById("project-dropdown").style.display = "block";
+            });
+
+            document.getElementById("instance").addEventListener("input", (e) => {
+                const project = document.getElementById('project').value;
+                if (!gcpData[project]) return;
+
+                const value = e.target.value.toLowerCase();
+                const instances = Object.keys(gcpData[project].instances);
+                const filtered = instances.filter(i => i.toLowerCase().includes(value));
+
+                createDropdown('instance-dropdown', filtered, (selectedInstance) => {
+                    document.getElementById('instance').value = selectedInstance;
+                    document.getElementById('database').value = '';
+                    document.getElementById('database-dropdown').innerHTML = '';
+
+                    const databases = gcpData[project].instances[selectedInstance];
+                    createDropdown('database-dropdown', databases, (selectedDb) => {
+                        document.getElementById('database').value = selectedDb;
+                    });
+                });
+                document.getElementById("instance-dropdown").style.display = "block";
+            });
+
+            document.getElementById("database").addEventListener("input", (e) => {
+                const project = document.getElementById('project').value;
+                const instance = document.getElementById('instance').value;
+                if (!gcpData[project] || !gcpData[project].instances[instance]) return;
+
+                const value = e.target.value.toLowerCase();
+                const databases = gcpData[project].instances[instance];
+                const filtered = databases.filter(d => d.toLowerCase().includes(value));
+
+                createDropdown('database-dropdown', filtered, (selectedDb) => {
+                    document.getElementById('database').value = selectedDb;
+                });
+                document.getElementById("database-dropdown").style.display = "block";
+            });
+        }
 
         function initializeApp() {
             const mount = document.querySelector('.mount-spanner-test');
@@ -870,74 +805,6 @@ LIMIT 50"></textarea>
                 mount: mount,
                 query: query
             });
-
-             setTimeout(() => {
-                if (allProjects.length < 1 && allInstances.length < 1 && allDatabases.length < 1) {
-                    storeConfig({
-                        project,
-                        instance,
-                        database,
-                        query,
-                        mock
-                    });
-                } else {
-                    storeConfig({
-                        allProject: allProjects,
-                        allInstances: allInstances,
-                        allDatabase: allDatabases,
-                        query
-                    });
-                }
-            }, 0);
-
-        }
-
-        function storeConfig(params) {
-            fetch(graphServer.buildRoute(graphServer.endpoints.saveConfig), {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(params)
-            })
-            .then(res => {
-                if (!res.ok) throw new Error("Failed to save config");
-                return res.json();
-            })
-            .then((res)=>{
-                Helpers.showToast(res.status);
-            })
-            .catch(err => Helpers.showToast(err.message));
-        }
-
-        function getSavedConfig(){
-            fetch(graphServer.buildRoute(graphServer.endpoints.getSavedConfig), {
-                method: "GET"
-            })
-            .then(res => {
-                if (!res.ok) throw new Error("Something went wrong");
-                return res.json();
-            })
-            .then(res => {
-                if(!res.allProject && !res.allInstances && !res.allDatabases){
-                    document.getElementById('project').value = res.project || '';
-                    document.getElementById('instance').value = res.instance || '';
-                    document.getElementById('database').value = res.database || '';
-                    document.getElementById('query').value = res.query || '';
-                    document.getElementById('mock').checked = res.mock || false;
-                } else {
-                    allProjects = res.allProject || [];
-                    allInstances = res.allInstances || [];
-                    allDatabases = res.allDatabase || [];
-
-                    populateProjectDropdown(allProjects);
-                    populateInstanceDropdown(allInstances);
-                    populateDatabaseDropdown(allDatabases);
-                }
-
-                document.getElementById('commandPalette').classList.add('active');
-                document.getElementById('overlay').classList.add('active');
-            });
         }
 
         // Load saved configuration from localStorage
@@ -980,19 +847,9 @@ LIMIT 50"></textarea>
             }
         });
 
-        function showLoader() {
-            document.getElementById('loader').classList.remove('hidden');
-        }
-
-        function hideLoader() {
-            document.getElementById('loader').classList.add('hidden');
-        }
-
-
         // Load saved config but wait for SpannerApp to be available
         loadSavedConfig();
         toggleCommandPalette();
     </script>
-    <div id="loader" class="loader hidden">Loading...</div>
 </body>
 </html> 
