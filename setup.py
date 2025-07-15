@@ -38,7 +38,7 @@ setup(
     install_requires=[
         "networkx", "numpy", "google-cloud-spanner", "ipython",
         "ipywidgets", "notebook", "requests", "portpicker",
-        "pydata-google-auth", "spanner", "googleapiclient"
+        "pydata-google-auth", "spanner", "google-api-python-client"
     ],
     include_package_data=True,
     description='Visually query Spanner Graph data in notebooks.',
