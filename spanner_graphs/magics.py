@@ -16,37 +16,58 @@
 
 import argparse
 import base64
-import random
-import uuid
-from enum import Enum, auto
 import json
 import os
-import sys
 from threading import Thread
 import re
 
 from IPython.core.display import HTML, JSON, Javascript
 from IPython.core.magic import Magics, magics_class, cell_magic
 from IPython.display import display, clear_output
-from networkx import DiGraph
-import ipywidgets as widgets
-from ipywidgets import interact
-from jinja2 import Template
 
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.graph_server import (
     GraphServer, execute_query, execute_node_expansion,
-    validate_node_expansion_request
 )
 from spanner_graphs.graph_visualization import generate_visualization_html
-from google.cloud import spanner_admin_instance_v1, spanner_admin_database_v1
-from googleapiclient.discovery import build
-from google.api_core.client_options import ClientOptions
-import pydata_google_auth
 from spanner_graphs.gcp_helper import GcpHelper
 
 
 singleton_server_thread: Thread = None
+
+SHOW_LOADER = """
+<div id="loader-container" style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+    font-family: Arial, sans-serif;
+">
+  <div style="text-align: center;">
+    <div class="loader" style="
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #4285F4;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: auto;
+    "></div>
+    <div style="margin-top: 10px;">Authenticating and fetching GCP resources...</div>
+  </div>
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</div>
+"""
+
+REMOVE_LOADER = """
+const loader = document.getElementById('loader-container');
+if (loader) loader.remove();
+"""
 
 def _load_file(path: list[str]) -> str:
         file_path = os.path.sep.join(path)
@@ -195,45 +216,15 @@ class NetworkVisualizationMagics(Magics):
                     mock=False
                 )
                 self.cell = cell
-                display(HTML("""
-                <div id="loader-container" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100px;
-                    font-family: Arial, sans-serif;
-                ">
-                <div style="text-align: center;">
-                    <div class="loader" style="
-                        border: 6px solid #f3f3f3;
-                        border-top: 6px solid #4285F4;
-                        border-radius: 50%;
-                        width: 40px;
-                        height: 40px;
-                        animation: spin 1s linear infinite;
-                        margin: auto;
-                    "></div>
-                    <div style="margin-top: 10px;">Authenticating and fetching GCP resources...</div>
-                </div>
-                <style>
-                    @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                    }
-                </style>
-                </div>
-            """))
+                display(HTML(SHOW_LOADER))
                 try:
                     credentials = GcpHelper.get_default_credentials_with_project()
                     gcp_data = GcpHelper.fetch_all_gcp_resources(credentials)
                 except Exception as e:
                     gcp_data = {}
                     print(f"Error fetching GCP resources: {e}")
-                
-                display(Javascript("""
-                    const loader = document.getElementById('loader-container');
-                    if (loader) loader.remove();
-                    """))
+
+                display(Javascript(REMOVE_LOADER))
 
                 html_content = generate_visualization_html(
                     query=cell,
