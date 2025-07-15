@@ -833,6 +833,20 @@ LIMIT 50"></textarea>
 
         function handleSubmit(e) {
             e.preventDefault();
+            const mock = document.getElementById('mock').checked;
+
+            if (!mock) {
+                const project = document.getElementById('project').value;
+                const instance = document.getElementById('instance').value;
+                const database = document.getElementById('database').value;
+                const query = document.getElementById('query').value;
+
+                if (!project || !instance || !database || !query) {
+                    Helpers.showToast("input must not be empty");
+                    return;
+                }
+            }
+
             toggleCommandPalette();
             initializeApp();
         }
