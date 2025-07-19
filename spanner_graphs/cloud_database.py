@@ -18,15 +18,15 @@ This module contains the cloud-specific implementation for talking to a Spanner 
 
 from __future__ import annotations
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from google.cloud import spanner
 from google.cloud.spanner_v1 import JsonObject
 from google.api_core.client_options import ClientOptions
-from google.cloud.spanner_v1.types import StructType, Type, TypeCode
+from google.cloud.spanner_v1.types import StructType, TypeCode
 import pydata_google_auth
 
-from spanner_graphs.database import SpannerDatabase, MockSpannerDatabase, SpannerQueryResult, SpannerFieldInfo
+from spanner_graphs.database import SpannerDatabase, SpannerQueryResult, SpannerFieldInfo
 
 def _get_default_credentials_with_project():
     return pydata_google_auth.default(

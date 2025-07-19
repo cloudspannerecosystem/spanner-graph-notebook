@@ -15,14 +15,12 @@
 """Magic class for our visualization"""
 
 import argparse
-import base64
 import json
-import os
 from threading import Thread
 import re
 
 from IPython.core.display import HTML, JSON, Javascript
-from IPython.core.magic import Magics, magics_class, cell_magic
+from IPython.core.magic import Magics, magics_class, line_cell_magic
 from IPython.display import display, clear_output
 
 from spanner_graphs.exec_env import get_database_instance
@@ -31,77 +29,10 @@ from spanner_graphs.graph_server import (
 )
 from spanner_graphs.graph_visualization import generate_visualization_html
 from spanner_graphs.gcp_helper import GcpHelper
+from .utils import FileHandler
 
 
 singleton_server_thread: Thread = None
-
-SHOW_LOADER = """
-<div id="loader-container" style="
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100px;
-    font-family: Arial, sans-serif;
-">
-  <div style="text-align: center;">
-    <div class="loader" style="
-        border: 6px solid #f3f3f3;
-        border-top: 6px solid #4285F4;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: auto;
-    "></div>
-    <div style="margin-top: 10px;">Authenticating and fetching GCP resources...</div>
-  </div>
-  <style>
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
-</div>
-"""
-
-REMOVE_LOADER = """
-const loader = document.getElementById('loader-container');
-if (loader) loader.remove();
-"""
-
-def _load_file(path: list[str]) -> str:
-        file_path = os.path.sep.join(path)
-        if not os.path.exists(file_path):
-                raise FileNotFoundError(f"Template file not found: {file_path}")
-
-        with open(file_path, 'r') as file:
-                content = file.read()
-
-        return content
-
-def _load_image(path: list[str]) -> str:
-    file_path = os.path.sep.join(path)
-    if not os.path.exists(file_path):
-        print("image does not exist")
-        return ''
-
-    if file_path.lower().endswith('.svg'):
-        with open(file_path, 'r') as file:
-            svg = file.read()
-            return base64.b64encode(svg.encode('utf-8')).decode('utf-8')
-    else:
-        with open(file_path, 'rb') as file:
-            return base64.b64decode(file.read()).decode('utf-8')
-
-def _parse_element_display(element_rep: str) -> dict[str, str]:
-    """Helper function to parse element display fields into a dict."""
-    if not element_rep:
-        return {}
-    res = {
-        e.strip().split(":")[0].lower(): e.strip().split(":")[1]
-        for e in element_rep.strip().split(",")
-    }
-    return res
 
 def is_colab() -> bool:
     """Check if code is running in Google Colab"""
@@ -191,10 +122,9 @@ class NetworkVisualizationMagics(Magics):
         )
         display(HTML(html_content))
 
-    @cell_magic
-    def spanner_graph(self, line: str, cell: str):
+    @line_cell_magic
+    def spanner_graph(self, line: str, cell: str = None):
         """spanner_graph function"""
-
         parser = argparse.ArgumentParser(
             description="Visualize network from Spanner database",
             exit_on_error=False)
@@ -215,16 +145,18 @@ class NetworkVisualizationMagics(Magics):
                     database="",
                     mock=False
                 )
-                self.cell = cell
-                display(HTML(SHOW_LOADER))
+                self.cell = ""
+                FileHandler.show_loader("Authenticating and fetching GCP resources...")
+
                 try:
                     credentials = GcpHelper.get_default_credentials_with_project()
-                    gcp_data = GcpHelper.fetch_all_gcp_resources(credentials)
+                    projects = GcpHelper.fetch_gcp_projects(credentials)
                 except Exception as e:
-                    gcp_data = {}
+                    projects = {}
                     print(f"Error fetching GCP resources: {e}")
 
-                display(Javascript(REMOVE_LOADER))
+                REMOVE_LOADER = FileHandler.hide_loader()
+                display(Javascript(REMOVE_LOADER + '\nremoveLoader();'))
 
                 html_content = generate_visualization_html(
                     query=cell,
@@ -236,7 +168,7 @@ class NetworkVisualizationMagics(Magics):
                         "mock": False,
                         "graph": ""
                     }),
-                    gcp_data=json.dumps(gcp_data),  # pass to HTML
+                    projects=json.dumps({"projects": projects}),
                     show_config_on_load=True
                 )
                 display(HTML(html_content))
@@ -258,7 +190,8 @@ class NetworkVisualizationMagics(Magics):
                 self.args.project,
                 self.args.instance,
                 self.args.database,
-                mock=self.args.mock)
+                mock=self.args.mock
+            )
             clear_output(wait=True)
             self.visualize(show_config_popup=False)
         except BaseException as e:

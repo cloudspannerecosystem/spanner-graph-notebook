@@ -22,7 +22,6 @@ import datetime
 import json
 from typing import Any, Dict, List
 import networkx as nx
-from numpy import number
 
 reserved_colors: dict[str, str] = {}
 

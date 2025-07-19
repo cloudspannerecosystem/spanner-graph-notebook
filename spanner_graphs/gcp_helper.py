@@ -11,6 +11,48 @@ class GcpHelper:
             use_local_webserver=False
         )
         return credentials
+    
+    @staticmethod
+    def fetch_gcp_projects(credentials):
+        """Fetch only GCP projects (no instances or databases)."""
+        try:
+            crm_service = build("cloudresourcemanager", "v1", credentials=credentials)
+            projects_resp = crm_service.projects().list().execute()
+            projects = projects_resp.get("projects", [])
+            return [{"projectId": p["projectId"], "name": p.get("name", "")} for p in projects]
+        except Exception as e:
+            print(f"[!] Error fetching GCP projects: {e}")
+            return []
+    
+    @staticmethod
+    def fetch_project_instances(project_id: str, credentials):
+        try:
+            client_options = ClientOptions(quota_project_id=project_id)
+            instance_client = spanner_admin_instance_v1.InstanceAdminClient(
+                credentials=credentials,
+                client_options=client_options
+            )
+            instances = instance_client.list_instances(parent=f"projects/{project_id}")
+            return [inst.name.split("/")[-1] for inst in instances]
+        except Exception as e:
+            print(f"[!] Error fetching instances: {e}")
+            return []
+    
+    @staticmethod
+    def fetch_instance_databases(project_id: str, instance_id: str, credentials):
+        try:
+            client_options = ClientOptions(quota_project_id=project_id)
+            db_client = spanner_admin_database_v1.DatabaseAdminClient(
+                credentials=credentials,
+                client_options=client_options
+            )
+            dbs = db_client.list_databases(parent=f"projects/{project_id}/instances/{instance_id}")
+            return [db.name.split("/")[-1] for db in dbs]
+        except Exception as e:
+            print(f"[!] Error fetching databases: {e}")
+            return []
+
+
     @staticmethod
     def fetch_all_gcp_resources(credentials):
         result = {}

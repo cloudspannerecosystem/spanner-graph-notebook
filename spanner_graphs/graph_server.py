@@ -29,6 +29,7 @@ from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.database import SpannerQueryResult
 from google.cloud import spanner
 from spanner_graphs.gcp_helper import GcpHelper
+from urllib.parse import urlparse, parse_qs
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
@@ -332,7 +333,9 @@ class GraphServer:
         "post_ping": "/post_ping",
         "post_query": "/post_query",
         "post_node_expansion": '/post_node_expansion',
-        "gcp_resources": '/gcp_resources'
+        "gcp_resources": '/gcp_resources',
+        "get_instances": '/get_instances',
+        "get_databases": '/get_databases',
     }
 
     _server = None
@@ -479,13 +482,63 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_json_response(gcp_data)
         except Exception as e:
             self.do_error_response(str(e))
-        
-    
+            
+    def get_gcp_projects_only(self):
+        try:
+            credentials = GcpHelper.get_default_credentials_with_project()
+            projects = GcpHelper.fetch_gcp_projects(credentials)
+            self.do_json_response(projects)
+        except Exception as e:
+            self.do_error_response(str(e))
+
+    def handle_get_instances(self):
+        try:
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            project_id = params.get("project", [None])[0]
+
+            if not project_id:
+                self.do_error_response("project_id is missing")
+                return
+
+            credentials = GcpHelper.get_default_credentials_with_project()
+            instances = GcpHelper.fetch_project_instances(project_id, credentials)
+
+            self.do_json_response({"instances": instances})
+
+        except Exception as e:
+            self.do_error_response(str(e))
+
+    def handle_get_databases(self):
+        try:
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            project_id = params.get("project", [None])[0]
+            instance_id = params.get("instance", [None])[0]
+
+            if not project_id or not instance_id:
+                self.do_error_response("both project_id and instance_id are required")
+                return
+
+            credentials = GcpHelper.get_default_credentials_with_project()
+            databases = GcpHelper.fetch_instance_databases(project_id, instance_id, credentials)
+
+            self.do_json_response({"databases": databases})
+
+        except Exception as e:
+            self.do_error_response(str(e))
+
     def do_GET(self):
+        parsed_path = urlparse(self.path).path
+        print(parsed_path)
         if self.path == GraphServer.endpoints["get_ping"]:
             self.handle_get_ping()
         elif self.path == GraphServer.endpoints["gcp_resources"]:
             self.get_gcp_resources()
+        elif parsed_path == GraphServer.endpoints["get_instances"]:
+            self.handle_get_instances()
+        elif parsed_path == GraphServer.endpoints["get_databases"]:
+            self.handle_get_databases()
         else:
             super().do_GET()
 

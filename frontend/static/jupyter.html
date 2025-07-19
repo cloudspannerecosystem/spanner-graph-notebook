@@ -198,7 +198,7 @@ limitations under the License.
     }
 </style>
 
-<div class="visualization-wrapper" data-id="{{ id }}" data-show-config="{{ show_config_on_load }}">
+<div class="visualization-wrapper" data-id="{{ id }}" data-show-config="{{ show_config_on_load }}" data-base-url="{{ base_url }}">
     <button class="config-toggle" onclick="toggleConfig_{{ id }}(this)">Re-Configure</button>
 
     <div class="config-overlay">
@@ -259,7 +259,8 @@ LIMIT 50"></textarea>
 
 <script>
     (function() {
-        const gcpData_{{ id }} = {{ gcp_data | safe }};
+        {{loader_js_code | safe}}
+        const projects_{{ id }} = {{ projects | safe }};
         const port_{{ id }} = {{ port }};
         const queryData_{{ id }} = {{ query | tojson }};
         const params_{{ id }} = {{ params | safe }};
@@ -332,31 +333,45 @@ LIMIT 50"></textarea>
             const instance = wrapper.querySelector('.instance').value;
 
             let items = [];
-            if (field === 'project') {
-                items = Object.keys(gcpData_{{ id }});
-            } else if (field === 'instance') {
-                if (gcpData_{{ id }}[project]) {
-                    items = Object.keys(gcpData_{{ id }}[project].instances || {});
-                }
-            } else if (field === 'database') {
-                if (gcpData_{{ id }}[project] && gcpData_{{ id }}[project].instances[instance]) {
-                    items = gcpData_{{ id }}[project].instances[instance];
-                }
-            }
-
             const listEl = wrapper.querySelector(`.${field}-list`);
             listEl.innerHTML = '';
-            items.forEach(item => {
-                const div = document.createElement('div');
-                div.textContent = item;
-                div.onclick = () => {
-                    wrapper.querySelector(`.${field}`).value = item;
-                    listEl.style.display = 'none';
-                    if (field === 'project') populateDropdown_{{ id }}(input, 'instance');
-                    if (field === 'instance') populateDropdown_{{ id }}(input, 'database');
-                };
-                listEl.appendChild(div);
-            });
+
+            if (field === 'project') {
+                items = (projects_{{ id }}.projects || []).map(p => p.projectId);
+                items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        wrapper.querySelector(`.${field}`).value = item;
+                        listEl.style.display = 'none';
+                        fetchInstances_{{ id }}(item, wrapper);
+                    };
+                    listEl.appendChild(div);
+                });
+            } else if (field === 'instance') {
+                const cached = input.dataset.options?.split(',') || [];
+                cached.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        wrapper.querySelector(`.${field}`).value = item;
+                        listEl.style.display = 'none';
+                        fetchDatabases_{{ id }}(project, item, wrapper);
+                    };
+                    listEl.appendChild(div);
+                });
+            } else if (field === 'database') {
+                const cached = input.dataset.options?.split(',') || [];
+                cached.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        wrapper.querySelector(`.${field}`).value = item;
+                        listEl.style.display = 'none';
+                    };
+                    listEl.appendChild(div);
+                });
+            }
 
             listEl.style.display = 'block';
         };
@@ -370,13 +385,82 @@ LIMIT 50"></textarea>
                 child.style.display = child.textContent.toLowerCase().includes(filter) ? 'block' : 'none';
             });
         };
+        async function fetchInstances_{{ id }}(projectId, wrapper) {
+            const input = wrapper.querySelector('.instance');
+            const listEl = wrapper.querySelector('.instance-list');
+            input.value = '';
+            input.dataset.options = '';
+            listEl.innerHTML = '';
 
-        // Initialize this specific instance
+            const baseUrl = wrapper.dataset.baseUrl;
+
+            try {
+                showLoader("Fetching instances...", wrapper);
+                const url = `${baseUrl}/get_instances?project=${projectId}`;                
+                const res = await fetch(url);
+                
+                if (!res.ok) {
+                    throw new Error("Something went wrong while fetching instances");
+                }
+                
+                const data = await res.json();
+                
+                input.dataset.options = data.instances.join(',');
+                data.instances.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        input.value = item;
+                        listEl.style.display = 'none';
+                        fetchDatabases_{{ id }}(projectId, item, wrapper);
+                    };
+                    listEl.appendChild(div);
+                });
+                listEl.style.display = 'block';
+            } catch (err) {
+                console.error('Error', err);
+            } finally {
+                removeLoader(wrapper);
+            }
+        }
+        async function fetchDatabases_{{ id }}(projectId, instanceId, wrapper) {
+            const input = wrapper.querySelector('.database');
+            const listEl = wrapper.querySelector('.database-list');
+            input.value = '';
+            input.dataset.options = '';
+            listEl.innerHTML = '';
+
+            const baseUrl = wrapper.dataset.baseUrl;
+
+            try {
+                showLoader("Fetching databases...", wrapper);
+                const url = `${baseUrl}/get_databases?project=${projectId}&instance=${instanceId}`;
+                const res = await fetch(url);
+                if (!res.ok) {
+                    throw new Error("Something went wrong while fetching databases");
+                }
+                const data = await res.json();
+                input.dataset.options = data.databases.join(',');
+                data.databases.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        input.value = item;
+                        listEl.style.display = 'none';
+                    };
+                    listEl.appendChild(div);
+                });
+                listEl.style.display = 'block';
+            } catch (err) {
+                console.error('Error:', err);
+            } finally {
+                removeLoader(wrapper);
+            }
+        }
+        
         const wrapper = document.querySelector(`[data-id="${wrapperId_{{ id }}}"]`);
         if (wrapper) {
             const mount = wrapper.querySelector('.graph-container');
-
-            // Pre-populate form fields with current params
             const projectInput = wrapper.querySelector('.project');
             const instanceInput = wrapper.querySelector('.instance');
             const databaseInput = wrapper.querySelector('.database');
@@ -402,7 +486,6 @@ LIMIT 50"></textarea>
             }
         }
 
-        // ESC key handler for this specific instance
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 const wrapper = document.querySelector(`[data-id="${wrapperId_{{ id }}}"]`);
