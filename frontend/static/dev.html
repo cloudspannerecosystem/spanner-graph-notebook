@@ -216,6 +216,12 @@ limitations under the License.
             box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
         }
 
+        .connection-field input:disabled {
+            background: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+        }
+
         .connection-field label {
             position: absolute;
             left: 8px;
@@ -505,7 +511,7 @@ limitations under the License.
     <div id="loader" class="loader">
         <div class="loader-content">
             <div class="spinner"></div>
-            <div class="loader-text">Authenticating...</div>
+            <div class="loader-text">Authenticating and Faching Resources</div>
         </div>
     </div>
     <div id="toast" class="toast hidden"></div>
@@ -542,13 +548,13 @@ limitations under the License.
 
                         <div class="connection-field">
                             <label for="instance">Instance ID</label><br />
-                            <input type="text" id="instance" placeholder="Select an instance" autocomplete="off">
+                            <input type="text" id="instance" placeholder="Select an instance" autocomplete="off" disabled>
                             <div id="instance-dropdown" class="custom-dropdown"></div>
                         </div>
 
                         <div class="connection-field">
                             <label for="database">Database</label><br />
-                            <input type="text" id="database" placeholder="Select a database" autocomplete="off">
+                            <input type="text" id="database" placeholder="Select a database" autocomplete="off" disabled>
                             <div id="database-dropdown" class="custom-dropdown"></div>
                         </div>
                     </div>
@@ -577,10 +583,14 @@ LIMIT 50"></textarea>
     </div>
 
     <script>
+        let projectsData = [];
+        let instancesData = [];
+        let databasesData = [];
+
         window.addEventListener("DOMContentLoaded", async () => {
             showLoader();
             try {
-                await gcpResources();
+                await fetchProjects();
                 setupDropdownFocusHandlers(); 
                 setupDropdownFiltering();
             } catch (err) {
@@ -601,43 +611,124 @@ LIMIT 50"></textarea>
             loader.classList.remove('show');
         }
 
-        gcpData={}
-        function gcpResources(){
-            return fetch(graphServer.buildRoute(graphServer.endpoints.gcpResources), {
+        function fetchProjects() {
+            return fetch(graphServer.buildRoute(graphServer.endpoints.gcpProjects), {
                 method: "GET",
             })
             .then(res => {
-                if (!res.ok) throw new Error("Failed to fetch GCP resources");
+                if (!res.ok) throw new Error("Failed to fetch GCP projects");
                 return res.json();
             })
             .then((res) => {
-                gcpData = res;
-                Helpers.showToast("Fetched GCP Resources")
-
-                document.getElementById("project").value = "";
-                document.getElementById("instance").value = "";
-                document.getElementById("database").value = "";
-
-                setupDropdowns();
-                
+                projectsData = res.projects;
+                Helpers.showToast("Fetched GCP Projects")
+                setupProjectDropdown();
                 return res;
             })
             .catch(err => {
                 Helpers.showToast(err.message);
+                throw err;
             });
         }
 
-        function createDropdown(dropdownId, items, onClick) {
+        // Fetch instances for a specific project
+        function fetchInstances(projectId) {
+            showLoader()
+            return fetch(graphServer.buildRoute(`${graphServer.endpoints.getInstances}?project=${encodeURIComponent(projectId)}`), {
+                method: "GET",
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to fetch instances");
+                return res.json();
+            })
+            .then((res) => {
+                instancesData = res.instances;
+                setupInstanceDropdown();
+                return res;
+            })
+            .catch(err => {
+                Helpers.showToast(err.message);
+                throw err;
+            })
+            .finally(() => {
+                hideLoader();
+            });
+        }
+
+        function fetchDatabases(projectId, instanceId) {
+            showLoader()
+            return fetch(graphServer.buildRoute(`${graphServer.endpoints.getDatabases}?project=${encodeURIComponent(projectId)}&instance=${encodeURIComponent(instanceId)}`), {
+                method: "GET",
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to fetch databases");
+                return res.json();
+            })
+            .then((res) => {
+                databasesData = res.databases;
+                setupDatabaseDropdown();
+                return res;
+            })
+            .catch(err => {
+                Helpers.showToast(err.message);
+                throw err;
+            })
+            .finally(() => {
+                hideLoader();
+            });
+        }
+
+        function createDropdown(dropdownId, items, onClick, displayField = null) {
             const dropdown = document.getElementById(dropdownId);
             dropdown.innerHTML = '';
             items.forEach(item => {
                 const option = document.createElement('div');
-                option.textContent = item;
+                option.textContent = displayField ? item[displayField] : item;
                 option.classList.add('dropdown-item');
                 option.style.padding = "6px";
                 option.style.cursor = "pointer";
                 option.addEventListener('click', () => onClick(item));
                 dropdown.appendChild(option);
+            });
+        }
+
+        function setupProjectDropdown() {
+            createDropdown('project-dropdown', projectsData, (selectedProject) => {
+                document.getElementById('project').value = selectedProject.projectId;
+                
+                document.getElementById('instance').value = '';
+                document.getElementById('database').value = '';
+                document.getElementById('instance').disabled = false;
+                document.getElementById('database').disabled = true;
+                
+                document.getElementById('instance-dropdown').innerHTML = '';
+                document.getElementById('database-dropdown').innerHTML = '';
+                
+                fetchInstances(selectedProject.projectId);
+            }, 'projectId');
+        }
+
+        function setupInstanceDropdown() {
+            createDropdown('instance-dropdown', instancesData, (selectedInstance) => {
+                document.getElementById('instance').value = selectedInstance.instanceId || selectedInstance;
+                
+                // Clear and enable database field
+                document.getElementById('database').value = '';
+                document.getElementById('database').disabled = false;
+                
+                // Clear database dropdown
+                document.getElementById('database-dropdown').innerHTML = '';
+                
+                // Fetch databases for selected project and instance
+                const projectId = document.getElementById('project').value;
+                const instanceId = selectedInstance.instanceId || selectedInstance;
+                fetchDatabases(projectId, instanceId);
+            });
+        }
+
+        function setupDatabaseDropdown() {
+            createDropdown('database-dropdown', databasesData, (selectedDatabase) => {
+                document.getElementById('database').value = selectedDatabase.name || selectedDatabase;
             });
         }
 
@@ -676,87 +767,64 @@ LIMIT 50"></textarea>
             document.getElementById("database-dropdown").style.display = "none";
         }
 
-        function setupDropdowns() {
-            const projects = Object.keys(gcpData);
-            createDropdown('project-dropdown', projects, (selectedProject) => {
-                document.getElementById('project').value = selectedProject;
-                document.getElementById('instance').value = '';
-                document.getElementById('database').value = '';
-                document.getElementById('instance-dropdown').innerHTML = '';
-                document.getElementById('database-dropdown').innerHTML = '';
-
-                const instances = Object.keys(gcpData[selectedProject].instances);
-                createDropdown('instance-dropdown', instances, (selectedInstance) => {
-                    document.getElementById('instance').value = selectedInstance;
-                    document.getElementById('database').value = '';
-                    document.getElementById('database-dropdown').innerHTML = '';
-
-                    const databases = gcpData[selectedProject].instances[selectedInstance];
-                    createDropdown('database-dropdown', databases, (selectedDb) => {
-                        document.getElementById('database').value = selectedDb;
-                    });
-                });
-            });
-        }
-
         function setupDropdownFiltering() {
             document.getElementById("project").addEventListener("input", (e) => {
                 const value = e.target.value.toLowerCase();
-                const filtered = Object.keys(gcpData).filter(p => p.toLowerCase().includes(value));
+                const filtered = projectsData.filter(p => 
+                    p.name.toLowerCase().includes(value) || 
+                    p.projectId.toLowerCase().includes(value)
+                );
                 createDropdown('project-dropdown', filtered, (selectedProject) => {
-                    document.getElementById('project').value = selectedProject;
+                    document.getElementById('project').value = selectedProject.projectId;
+                    
                     document.getElementById('instance').value = '';
                     document.getElementById('database').value = '';
+                    document.getElementById('instance').disabled = false;
+                    document.getElementById('database').disabled = true;
+                    
                     document.getElementById('instance-dropdown').innerHTML = '';
                     document.getElementById('database-dropdown').innerHTML = '';
-
-                    const instances = Object.keys(gcpData[selectedProject].instances);
-                    createDropdown('instance-dropdown', instances, (selectedInstance) => {
-                        document.getElementById('instance').value = selectedInstance;
-                        document.getElementById('database').value = '';
-                        document.getElementById('database-dropdown').innerHTML = '';
-
-                        const databases = gcpData[selectedProject].instances[selectedInstance];
-                        createDropdown('database-dropdown', databases, (selectedDb) => {
-                            document.getElementById('database').value = selectedDb;
-                        });
-                    });
-                });
+                    
+                    fetchInstances(selectedProject.projectId);
+                }, 'projectId');
                 document.getElementById("project-dropdown").style.display = "block";
             });
 
             document.getElementById("instance").addEventListener("input", (e) => {
-                const project = document.getElementById('project').value;
-                if (!gcpData[project]) return;
-
+                if (document.getElementById("instance").disabled) return;
+                
                 const value = e.target.value.toLowerCase();
-                const instances = Object.keys(gcpData[project].instances);
-                const filtered = instances.filter(i => i.toLowerCase().includes(value));
+                const filtered = instancesData.filter(i => {
+                    const instanceId = i.instanceId || i;
+                    return instanceId.toLowerCase().includes(value);
+                });
 
                 createDropdown('instance-dropdown', filtered, (selectedInstance) => {
-                    document.getElementById('instance').value = selectedInstance;
+                    document.getElementById('instance').value = selectedInstance.instanceId || selectedInstance;
+                    
                     document.getElementById('database').value = '';
+                    document.getElementById('database').disabled = false;
+                    
                     document.getElementById('database-dropdown').innerHTML = '';
-
-                    const databases = gcpData[project].instances[selectedInstance];
-                    createDropdown('database-dropdown', databases, (selectedDb) => {
-                        document.getElementById('database').value = selectedDb;
-                    });
+                    
+                    const projectId = document.getElementById('project').value;
+                    const instanceId = selectedInstance.instanceId || selectedInstance;
+                    fetchDatabases(projectId, instanceId);
                 });
                 document.getElementById("instance-dropdown").style.display = "block";
             });
 
             document.getElementById("database").addEventListener("input", (e) => {
-                const project = document.getElementById('project').value;
-                const instance = document.getElementById('instance').value;
-                if (!gcpData[project] || !gcpData[project].instances[instance]) return;
-
+                if (document.getElementById("database").disabled) return;
+                
                 const value = e.target.value.toLowerCase();
-                const databases = gcpData[project].instances[instance];
-                const filtered = databases.filter(d => d.toLowerCase().includes(value));
+                const filtered = databasesData.filter(d => {
+                    const dbName = d.name || d;
+                    return dbName.toLowerCase().includes(value);
+                });
 
-                createDropdown('database-dropdown', filtered, (selectedDb) => {
-                    document.getElementById('database').value = selectedDb;
+                createDropdown('database-dropdown', filtered, (selectedDatabase) => {
+                    document.getElementById('database').value = selectedDatabase.name || selectedDatabase;
                 });
                 document.getElementById("database-dropdown").style.display = "block";
             });

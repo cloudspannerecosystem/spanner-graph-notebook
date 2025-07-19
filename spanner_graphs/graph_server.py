@@ -333,7 +333,7 @@ class GraphServer:
         "post_ping": "/post_ping",
         "post_query": "/post_query",
         "post_node_expansion": '/post_node_expansion',
-        "gcp_resources": '/gcp_resources',
+        "gcp_projects": '/gcp_projects',
         "get_instances": '/get_instances',
         "get_databases": '/get_databases',
     }
@@ -487,7 +487,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         try:
             credentials = GcpHelper.get_default_credentials_with_project()
             projects = GcpHelper.fetch_gcp_projects(credentials)
-            self.do_json_response(projects)
+            self.do_json_response({"projects": projects})
         except Exception as e:
             self.do_error_response(str(e))
 
@@ -533,12 +533,14 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         print(parsed_path)
         if self.path == GraphServer.endpoints["get_ping"]:
             self.handle_get_ping()
-        elif self.path == GraphServer.endpoints["gcp_resources"]:
-            self.get_gcp_resources()
+        # elif self.path == GraphServer.endpoints["gcp_resources"]:
+        #     self.get_gcp_resources()
         elif parsed_path == GraphServer.endpoints["get_instances"]:
             self.handle_get_instances()
         elif parsed_path == GraphServer.endpoints["get_databases"]:
             self.handle_get_databases()
+        elif self.path == GraphServer.endpoints["gcp_projects"]:
+            self.get_gcp_projects_only()
         else:
             super().do_GET()
 
