@@ -16,12 +16,14 @@ from IPython.display import display
 from IPython.core.display import HTML
 import os
 
-
 class FileHandler:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
     @staticmethod
     def show_loader(message="Loading..."):
         try:
-            with open("frontend/static/loader.html", "r") as file:
+            path = os.path.join(FileHandler.BASE_DIR, "..", "frontend", "static", "loader.html")
+            with open(path, "r") as file:
                 html_template = file.read()
 
             loader_text = html_template.replace("{{message}}", message)
@@ -32,7 +34,7 @@ class FileHandler:
 
     @staticmethod
     def load_js(path: list[str]) -> str:
-        file_path = os.path.sep.join(path)
+        file_path = os.path.join(FileHandler.BASE_DIR, "..", *path)
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"JS file not found: {file_path}")
 

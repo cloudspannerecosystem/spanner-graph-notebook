@@ -1,8 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 from IPython.core.interactiveshell import InteractiveShell
 from spanner_graphs.graph_server import GraphServer
 from spanner_graphs.magics import NetworkVisualizationMagics, load_ipython_extension
+from IPython.core.display import HTML
 
 class TestNetworkVisualizationMagics(unittest.TestCase):
     def setUp(self):
@@ -91,6 +92,32 @@ class TestNetworkVisualizationMagics(unittest.TestCase):
             mock_print.assert_any_call(
                 "Error: Query is required."
             )
+    @patch('spanner_graphs.magics.get_database_instance')
+    @patch('spanner_graphs.magics.GraphServer')
+    @patch('spanner_graphs.magics.display')
+    def test_spanner_graph_with_cell_magic(self, mock_display, mock_server, mock_db):
+        cell_content = "SELECT * FROM some_table"
+
+        self.magics.spanner_graph("", cell_content)
+
+        self.assertTrue(any(isinstance(call.args[0], HTML) for call in mock_display.call_args_list),
+                        "Expected display to be called with an HTML object")
+
+        self.assertEqual(self.magics.args.project, "")
+        self.assertEqual(self.magics.args.instance, "")
+        self.assertEqual(self.magics.args.database, "")
+
+    @patch('spanner_graphs.magics.display')
+    @patch('spanner_graphs.magics.FileHandler')
+    @patch('spanner_graphs.magics.GcpHelper')
+    def test_spanner_graph_with_line_magic(self, mock_gcp, mock_filehandler, mock_display):
+        mock_gcp.get_default_credentials_with_project.return_value = "fake_credentials"
+        mock_gcp.fetch_gcp_projects.return_value = {"proj1": "Project 1"}
+
+        self.magics.spanner_graph("", None)
+
+        mock_filehandler.show_loader.assert_called_once()
+        mock_filehandler.hide_loader.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
