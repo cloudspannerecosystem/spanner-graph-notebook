@@ -394,7 +394,7 @@ limitations under the License.
             font-size: 12px;
             pointer-events: none;
         }
-        .loader {
+        .loader-container {
             position: fixed;
             top: 0;
             left: 0;
@@ -410,7 +410,7 @@ limitations under the License.
             transition: opacity 0.3s ease;
         }
 
-        .loader.show {
+        .loader-container.show {
             opacity: 1;
             pointer-events: all;
         }
@@ -442,59 +442,59 @@ limitations under the License.
             font-weight: 500;
         }
         .custom-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        width: 100%;
-        margin-top: 4px;
-        background-color: white;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        z-index: 1000;
-        max-height: 150px;
-        overflow-y: auto;
-        display: none; /* initially hidden */
-    }
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            margin-top: 4px;
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            z-index: 1000;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none; /* initially hidden */
+        }
 
-    .dropdown-item {
-        padding: 8px 12px;
-        font-size: 14px;
-        color: var(--text-color);
-        cursor: pointer;
-        white-space: nowrap;
-    }
+        .dropdown-item {
+            padding: 8px 12px;
+            font-size: 14px;
+            color: var(--text-color);
+            cursor: pointer;
+            white-space: nowrap;
+        }
 
-    .dropdown-item:hover {
-        background-color: #f1f3f4;
-    }
-    .toast {
-        position: fixed;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: #e74c3c; /* red for error */
-        color: #fff;
-        padding: 12px 24px;
-        border-radius: 6px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        font-size: 14px;
-        z-index: 9999;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease, transform 0.3s ease;
-    }
+        .dropdown-item:hover {
+            background-color: #f1f3f4;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #e74c3c; /* red for error */
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
 
-    .toast.show {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-        pointer-events: all;
-    }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: all;
+        }
 
-    .toast.hidden {
-        opacity: 0;
-        transform: translateX(-50%) translateY(20px);
-    }
+        .toast.hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
 
     </style>
     <script type="module" src="../src/index.js"></script>
@@ -508,10 +508,10 @@ limitations under the License.
     </script>
 </head>
 <body>
-    <div id="loader" class="loader">
+    <div id="loader" class="loader-container">
         <div class="loader-content">
             <div class="spinner"></div>
-            <div class="loader-text">Authenticating and Faching Resources</div>
+            <div class="loader-text">Fetching Resources ...</div>
         </div>
     </div>
     <div id="toast" class="toast hidden"></div>
@@ -519,7 +519,7 @@ limitations under the License.
         <div class="mount-spanner-test"></div>
         
         <div class="floating-controls">
-            <button class="control-button" onclick="toggleCommandPalette()" title="Configure (Cmd/Ctrl + K)">
+            <button class="control-button" onclick="getSavedConfig()" title="Configure (Cmd/Ctrl + K)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"></path>
                 </svg>
@@ -631,7 +631,6 @@ LIMIT 50"></textarea>
             });
         }
 
-        // Fetch instances for a specific project
         function fetchInstances(projectId) {
             showLoader()
             return fetch(graphServer.buildRoute(`${graphServer.endpoints.getInstances}?project=${encodeURIComponent(projectId)}`), {
@@ -643,6 +642,7 @@ LIMIT 50"></textarea>
             })
             .then((res) => {
                 instancesData = res.instances;
+                Helpers.showToast("Fetched GCP Instances")
                 setupInstanceDropdown();
                 return res;
             })
@@ -665,6 +665,7 @@ LIMIT 50"></textarea>
                 return res.json();
             })
             .then((res) => {
+                Helpers.showToast("Fetched GCP Databases")
                 databasesData = res.databases;
                 setupDatabaseDropdown();
                 return res;
@@ -844,15 +845,6 @@ LIMIT 50"></textarea>
                 graph = graphMatch[1];
             }
 
-            // Save configuration to localStorage
-            localStorage.setItem('spanner-graph-config', JSON.stringify({
-                project,
-                instance,
-                database,
-                query,
-                mock
-            }));
-
             // Clear previous instance if it exists
             if (window.app) {
                 window.app.tearDown();
@@ -873,6 +865,62 @@ LIMIT 50"></textarea>
                 mount: mount,
                 query: query
             });
+            setTimeout(() => {
+                storeConfig({
+                    projects: projectsData,
+                    instance: instance,
+                    Database: database,
+                    query
+                });
+            }, 0);
+        }
+
+        function storeConfig(params) {
+            fetch(graphServer.buildRoute(graphServer.endpoints.saveConfig), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(params)
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to save config");
+                return res.json();
+            })
+            .then((res)=>{
+                Helpers.showToast(res.status);
+            })
+            .catch(err => Helpers.showToast(err.message));
+        }
+
+        function getSavedConfig() {
+            fetch(graphServer.buildRoute(graphServer.endpoints.getSavedConfig), {
+                method: "GET"
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Something went wrong");
+                return res.json();
+            })
+            .then(res => {
+                projectsData = res.projects || [];
+                setupProjectDropdown();
+
+                document.getElementById("instance").value = res.instance || "";
+                document.getElementById("instance").disabled = false;
+
+                document.getElementById("database").value = res.Database || "";
+                document.getElementById("database").disabled = false;
+
+                document.getElementById("query").value = res.query || "";
+
+                const palette = document.getElementById('commandPalette');
+                const overlay = document.getElementById('overlay');
+                palette.classList.add('active');
+                overlay.classList.add('active');
+            })
+            .catch(err => {
+                Helpers.showToast(err.message);
+            })
         }
 
         // Load saved configuration from localStorage
@@ -895,7 +943,19 @@ LIMIT 50"></textarea>
             overlay.classList.toggle('active');
             
             if (palette.classList.contains('active')) {
-                palette.querySelector('input').focus();
+                projectsData = [];
+                instancesData = [];
+                databasesData = [];
+
+                document.getElementById("project").value = "";
+                document.getElementById("instance").value = "";
+                document.getElementById("database").value = "";
+
+
+                document.getElementById("project-dropdown").innerHTML = "";
+                document.getElementById("instance-dropdown").innerHTML = "";
+                document.getElementById("database-dropdown").innerHTML = "";
+
             }
         }
 
@@ -930,7 +990,6 @@ LIMIT 50"></textarea>
         });
 
         // Load saved config but wait for SpannerApp to be available
-        loadSavedConfig();
         toggleCommandPalette();
     </script>
 </body>

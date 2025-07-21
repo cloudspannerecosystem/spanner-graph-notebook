@@ -33,6 +33,8 @@ class GraphServer {
         gcpProjects:'/gcp_projects',
         getInstances: '/get_instances',
         getDatabases: '/get_databases',
+        saveConfig: '/save_config',
+        getSavedConfig: '/get_saved_config'
 
     };
 

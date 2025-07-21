@@ -56,6 +56,8 @@ class EdgeDirection(Enum):
     INCOMING = "INCOMING"
     OUTGOING = "OUTGOING"
 
+cached_credentials = None
+
 
 def is_valid_property_type(property_type: str) -> bool:
     """
@@ -336,6 +338,8 @@ class GraphServer:
         "gcp_projects": '/gcp_projects',
         "get_instances": '/get_instances',
         "get_databases": '/get_databases',
+        "save_config": '/save_config',
+        "get_saved_config": '/get_saved_config'
     }
 
     _server = None
@@ -484,14 +488,17 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_error_response(str(e))
             
     def get_gcp_projects_only(self):
+        global cached_credentials
         try:
-            credentials = GcpHelper.get_default_credentials_with_project()
-            projects = GcpHelper.fetch_gcp_projects(credentials)
+            if not cached_credentials:
+                cached_credentials = GcpHelper.get_default_credentials_with_project()
+            projects = GcpHelper.fetch_gcp_projects(cached_credentials)
             self.do_json_response({"projects": projects})
         except Exception as e:
             self.do_error_response(str(e))
 
     def handle_get_instances(self):
+        global cached_credentials
         try:
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
@@ -501,8 +508,9 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
                 self.do_error_response("project_id is missing")
                 return
 
-            credentials = GcpHelper.get_default_credentials_with_project()
-            instances = GcpHelper.fetch_project_instances(project_id, credentials)
+            if not cached_credentials:
+                cached_credentials = GcpHelper.get_default_credentials_with_project()
+            instances = GcpHelper.fetch_project_instances(project_id, cached_credentials)
 
             self.do_json_response({"instances": instances})
 
@@ -510,6 +518,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_error_response(str(e))
 
     def handle_get_databases(self):
+        global cached_credentials
         try:
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
@@ -520,27 +529,43 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
                 self.do_error_response("both project_id and instance_id are required")
                 return
 
-            credentials = GcpHelper.get_default_credentials_with_project()
-            databases = GcpHelper.fetch_instance_databases(project_id, instance_id, credentials)
+            if not cached_credentials:
+                cached_credentials = GcpHelper.get_default_credentials_with_project()
+            databases = GcpHelper.fetch_instance_databases(project_id, instance_id, cached_credentials)
 
             self.do_json_response({"databases": databases})
 
         except Exception as e:
             self.do_error_response(str(e))
+    
+    def handle_save_user_data(self):
+        print("handle user data function")
+        global saved_user_config
+        try:
+            data = self.parse_post_data()
+            saved_user_config = data
+            self.do_json_response({"status": "saved"})
+        except Exception as e:
+            self.do_error_response(str(e))
+            
+    def get_saved_user_data(self):
+        print("get user data")
+        global saved_user_config
+        self.do_data_response(saved_user_config)
 
     def do_GET(self):
         parsed_path = urlparse(self.path).path
         print(parsed_path)
         if self.path == GraphServer.endpoints["get_ping"]:
             self.handle_get_ping()
-        # elif self.path == GraphServer.endpoints["gcp_resources"]:
-        #     self.get_gcp_resources()
         elif parsed_path == GraphServer.endpoints["get_instances"]:
             self.handle_get_instances()
         elif parsed_path == GraphServer.endpoints["get_databases"]:
             self.handle_get_databases()
         elif self.path == GraphServer.endpoints["gcp_projects"]:
             self.get_gcp_projects_only()
+        elif self.path == GraphServer.endpoints["get_saved_config"]:
+            self.get_saved_user_data()
         else:
             super().do_GET()
 
@@ -551,5 +576,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_post_query()
         elif self.path == GraphServer.endpoints["post_node_expansion"]:
             self.handle_post_node_expansion()
+        elif self.path == GraphServer.endpoints['save_config']:
+            self.handle_save_user_data()
 
 atexit.register(GraphServer.stop_server)
