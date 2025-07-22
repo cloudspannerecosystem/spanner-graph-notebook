@@ -11,7 +11,7 @@ class GcpHelper:
             use_local_webserver=False
         )
         return credentials
-    
+
     @staticmethod
     def fetch_gcp_projects(credentials):
         """Fetch only GCP projects (no instances or databases)."""
@@ -23,9 +23,9 @@ class GcpHelper:
         except Exception as e:
             print(f"[!] Error fetching GCP projects: {e}")
             return []
-    
+
     @staticmethod
-    def fetch_project_instances(project_id: str, credentials):
+    def fetch_project_instances(credentials, project_id: str):
         try:
             client_options = ClientOptions(quota_project_id=project_id)
             instance_client = spanner_admin_instance_v1.InstanceAdminClient(
@@ -37,9 +37,9 @@ class GcpHelper:
         except Exception as e:
             print(f"[!] Error fetching instances: {e}")
             return []
-    
+
     @staticmethod
-    def fetch_instance_databases(project_id: str, instance_id: str, credentials):
+    def fetch_instance_databases(credentials, project_id: str, instance_id: str):
         try:
             client_options = ClientOptions(quota_project_id=project_id)
             db_client = spanner_admin_database_v1.DatabaseAdminClient(
@@ -51,7 +51,6 @@ class GcpHelper:
         except Exception as e:
             print(f"[!] Error fetching databases: {e}")
             return []
-
 
     @staticmethod
     def fetch_all_gcp_resources(credentials):
@@ -99,5 +98,5 @@ class GcpHelper:
         except Exception as e:
             print(f"[!] Error fetching GCP resources: {e}")
             # Return an empty result if there's a broader error during fetching
-            return {} 
+            return {}
         return result

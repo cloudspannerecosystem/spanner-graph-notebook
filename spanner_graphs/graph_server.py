@@ -510,7 +510,8 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
 
             if not cached_credentials:
                 cached_credentials = GcpHelper.get_default_credentials_with_project()
-            instances = GcpHelper.fetch_project_instances(project_id, cached_credentials)
+
+            instances = GcpHelper.fetch_project_instances(cached_credentials, project_id)
 
             self.do_json_response({"instances": instances})
 
@@ -531,13 +532,14 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
 
             if not cached_credentials:
                 cached_credentials = GcpHelper.get_default_credentials_with_project()
-            databases = GcpHelper.fetch_instance_databases(project_id, instance_id, cached_credentials)
+
+            databases = GcpHelper.fetch_instance_databases(cached_credentials, project_id, instance_id)
 
             self.do_json_response({"databases": databases})
 
         except Exception as e:
             self.do_error_response(str(e))
-    
+
     def handle_save_user_data(self):
         print("handle user data function")
         global saved_user_config
@@ -547,7 +549,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_json_response({"status": "saved"})
         except Exception as e:
             self.do_error_response(str(e))
-            
+
     def get_saved_user_data(self):
         print("get user data")
         global saved_user_config

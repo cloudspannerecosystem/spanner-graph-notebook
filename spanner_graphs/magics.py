@@ -76,6 +76,23 @@ def receive_node_expansion_request(request: dict, params_str: str):
         return JSON(execute_node_expansion(params_str, request))
     except BaseException as e:
         return JSON({"error": e})
+    
+def receive_instances_request(project: str):
+    try:
+        credentials = GcpHelper.get_default_credentials_with_project()
+        instances = GcpHelper.fetch_project_instances(credentials, project)
+        return JSON({"instances": instances})
+    except Exception as e:
+        return JSON({"error": str(e), "instances": []})
+
+
+def receive_databases_request(project: str, instance: str):
+    try:
+        credentials = GcpHelper.get_default_credentials_with_project()
+        databases = GcpHelper.fetch_instance_databases(credentials, project, instance)
+        return JSON({"databases": databases})
+    except Exception as e:
+        return JSON({"error": str(e), "databases": []})
 
 @magics_class
 class NetworkVisualizationMagics(Magics):
@@ -92,6 +109,9 @@ class NetworkVisualizationMagics(Magics):
             from google.colab import output
             output.register_callback('graph_visualization.Query', receive_query_request)
             output.register_callback('graph_visualization.NodeExpansion', receive_node_expansion_request)
+
+            output.register_callback('graph_visualization.GetInstances', receive_instances_request)
+            output.register_callback('graph_visualization.GetDatabases', receive_databases_request)
         else:
             global singleton_server_thread
             alive = singleton_server_thread and singleton_server_thread.is_alive()

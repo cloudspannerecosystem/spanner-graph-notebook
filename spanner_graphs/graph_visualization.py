@@ -57,9 +57,8 @@ def generate_visualization_html(query: str, port: int, params: str, show_config_
             search_dir = parent
 
         template_content = _load_file([search_dir, 'frontend', 'static', 'jupyter.html'])
-        
-        loader_js_code = _load_file([search_dir, 'frontend', 'src', 'authLoader.js'])
 
+        loader_js_code = _load_file([search_dir, 'frontend', 'src', 'authLoader.js'])
 
         # Load the JavaScript bundle directly
         js_file_path = os.path.join(search_dir, 'third_party', 'index.js')

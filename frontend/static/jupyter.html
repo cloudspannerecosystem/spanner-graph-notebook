@@ -258,6 +258,9 @@ LIMIT 50"></textarea>
 {{ bundled_js_code }}
 
 <script>
+    function isColabEnv() {
+        return typeof google !== 'undefined' && google.colab && google.colab.kernel;
+    }
     (function() {
         {{loader_js_code | safe}}
         const projects_{{ id }} = {{ projects | safe }};
@@ -393,20 +396,35 @@ LIMIT 50"></textarea>
             listEl.innerHTML = '';
 
             const baseUrl = wrapper.dataset.baseUrl;
+            //const isColab = typeof google !== 'undefined' && google.colab && google.colab.kernel;
 
             try {
                 showLoader("Fetching instances...", wrapper);
-                const url = `${baseUrl}/get_instances?project=${projectId}`;                
-                const res = await fetch(url);
-                
-                if (!res.ok) {
-                    throw new Error("Something went wrong while fetching instances");
+
+                let instances = [];
+
+                if (isColabEnv()) {
+                    const response = await google.colab.kernel.invokeFunction(
+                        'graph_visualization.GetInstances',
+                        [projectId],
+                        {}
+                    );
+                    const payload = response.data?.['application/json'];
+                    if (!payload || !Array.isArray(payload.instances)) {
+                        throw new Error("Invalid or missing instance list");
+                    }
+
+                    instances = payload.instances;
+                } else {
+                    const url = `${baseUrl}/get_instances?project=${projectId}`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("Something went wrong while fetching instances");
+                    const data = await res.json();
+                    instances = data.instances;
                 }
-                
-                const data = await res.json();
-                
-                input.dataset.options = data.instances.join(',');
-                data.instances.forEach(item => {
+
+                input.dataset.options = instances.join(',');
+                instances.forEach(item => {
                     const div = document.createElement('div');
                     div.textContent = item;
                     div.onclick = () => {
@@ -418,11 +436,12 @@ LIMIT 50"></textarea>
                 });
                 listEl.style.display = 'block';
             } catch (err) {
-                console.error('Error', err);
+                console.error('Error fetching instances:', err);
             } finally {
                 removeLoader(wrapper);
             }
         }
+
         async function fetchDatabases_{{ id }}(projectId, instanceId, wrapper) {
             const input = wrapper.querySelector('.database');
             const listEl = wrapper.querySelector('.database-list');
@@ -431,17 +450,35 @@ LIMIT 50"></textarea>
             listEl.innerHTML = '';
 
             const baseUrl = wrapper.dataset.baseUrl;
+            //const isColab = typeof google !== 'undefined' && google.colab && google.colab.kernel;
 
             try {
                 showLoader("Fetching databases...", wrapper);
-                const url = `${baseUrl}/get_databases?project=${projectId}&instance=${instanceId}`;
-                const res = await fetch(url);
-                if (!res.ok) {
-                    throw new Error("Something went wrong while fetching databases");
+
+                let databases = [];
+
+                if (isColabEnv()) {
+                    const response = await google.colab.kernel.invokeFunction(
+                        'graph_visualization.GetDatabases',
+                        [projectId, instanceId],
+                        {}
+                    );
+                    const payload = response.data?.['application/json'];
+                    if (!payload || !Array.isArray(payload.databases)) {
+                        throw new Error("Invalid or missing instance list");
+                    }
+
+                    databases = payload.databases;
+                } else {
+                    const url = `${baseUrl}/get_databases?project=${projectId}&instance=${instanceId}`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("Something went wrong while fetching databases");
+                    const data = await res.json();
+                    databases = data.databases;
                 }
-                const data = await res.json();
-                input.dataset.options = data.databases.join(',');
-                data.databases.forEach(item => {
+
+                input.dataset.options = databases.join(',');
+                databases.forEach(item => {
                     const div = document.createElement('div');
                     div.textContent = item;
                     div.onclick = () => {
@@ -452,7 +489,7 @@ LIMIT 50"></textarea>
                 });
                 listEl.style.display = 'block';
             } catch (err) {
-                console.error('Error:', err);
+                console.error('Error fetching databases:', err);
             } finally {
                 removeLoader(wrapper);
             }
