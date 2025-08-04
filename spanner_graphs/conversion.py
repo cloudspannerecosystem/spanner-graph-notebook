@@ -25,7 +25,54 @@ from spanner_graphs.database import SpannerFieldInfo
 from spanner_graphs.graph_entities import Node, Edge
 from spanner_graphs.schema_manager import SchemaManager
 
-def get_nodes_edges(data: Dict[str, List[Any]], fields: List[SpannerFieldInfo], schema_json: dict = None) -> Tuple[List[Node], List[Edge]]:
+def get_nodes_edges(data: Dict[str, List[Any]], fields: List[SpannerFieldInfo],
+                    schema_json: dict = None) -> Tuple[List[Node], List[Edge]]:
+    """Retrieves the nodes and edges for query results, in the form expected by the Javascript code.
+
+    WARNING: This function is not only used for graph visualization in Spanner, but also BigQuery.
+    Currently, infrastructure is set up to only run the Spanner tests, so, when changing this function,
+    you will need to test bigquery manually.
+
+    Instructions:
+      $ TODO
+
+    Args:
+        data: A dictionary associating the name of each column with a list of values for that
+            column at each row. The representation of row values depends on the column type. See
+            the `fields` argument for details.
+        fields: A list of database.SpannerFieldInfo objects specifying the name and type
+            of each in the query result. This list must contain exactly one item per dictionary
+            entry in `data`, with each list item set as follow:
+            - `name` is the name of the column. This must match exactly a dictionary key in `data`.
+            - `typename` specifies the type of the column, which determines how row values for this
+                column are represented in `data[name]`. Possible `typename` values are as follows:
+                - "JSON":
+                    Indicates that the column is SQL type `JSON`. Each row value in `data` is a
+                    dictionary associating JSON field names with their corresponding field values,
+                    normally the result of `json.loads()`. To be supported for visualization, the JSON
+                    schema must result in the following fields being present in the dictionary:
+                        - "kind": 'node' or 'edge', depending on whether the object represents a node or edge.
+                        - "identifier": A string representing a unique identifier for the node or edge.
+                        - "labels" A list of strings representing labels associated with the node or edge.
+                        - "properties": A dictionary specifying additional properties of the node or edge.
+                        - "source_node_identifier": (edges only) Specifies `identifier` value for the
+                                corresponding source node.
+                        - "destination_node_identifier": (edges only) Specifies the `identifier` value for the
+                                corresponding destination node.
+
+                    See Node.is_valid_node_json() and Edge.is_valid_edge_json() for details.
+                - "ARRAY":
+                    Indicates that the column is SQL type `ARRAY<JSON>`. Each row value is a list
+                    of JSON objects (see above for the expected content of each JSON object)
+                - Anything else means that the column is not supported for visualization. (Passing in
+                    unsupported columns is allowed, but such columns are exluded from the results).
+        schema_json: An optional dictionary describing the graph schema. This may be None in the graph
+            schema is unknown. Used as the constructor argument to be `SchemaManager` class; see SchemaManager
+            for details.
+            
+    Returns:
+
+    """
     schema_manager = SchemaManager(schema_json)
     nodes: List[Node] = []
     edges: List[Edge] = []
