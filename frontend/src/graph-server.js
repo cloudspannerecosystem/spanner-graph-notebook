@@ -57,7 +57,7 @@ class GraphServer {
     buildRoute(endpoint) {
         const hostname = window.location.hostname;
 
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
             // Local Jupyter Notebook environment
             return `http://localhost:${this.port}${endpoint}`;
         } else {
