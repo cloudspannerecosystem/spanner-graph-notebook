@@ -91,6 +91,8 @@ class CloudSpannerDatabase(SpannerDatabase):
         query: str,
         limit: int = None,
         is_test_query: bool = False,
+        params: dict = None,
+        param_types: dict = None,
     ) -> SpannerQueryResult:
         """
         This method executes the provided `query`
@@ -99,6 +101,8 @@ class CloudSpannerDatabase(SpannerDatabase):
             query: The SQL query to execute against the database
             limit: An optional limit for the number of rows to return
             is_test_query: If true, skips schema fetching for graph queries.
+            params: A dictionary of query parameters.
+            param_types: A dictionary of query parameter types.
 
         Returns:
             A `SpannerQueryResult`
@@ -108,10 +112,10 @@ class CloudSpannerDatabase(SpannerDatabase):
             self.schema_json = self._get_schema_for_graph(query)
 
         with self.database.snapshot() as snapshot:
-            params = None
-            param_types = None
             if limit and limit > 0:
-                params = dict(limit=limit)
+                if params is None:
+                    params = {}
+                params["limit"] = limit
 
             try:
                 results = snapshot.execute_sql(query, params=params, param_types=param_types)

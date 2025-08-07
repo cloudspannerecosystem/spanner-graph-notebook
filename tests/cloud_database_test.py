@@ -28,9 +28,11 @@ from spanner_graphs.database import SpannerFieldInfo
 class TestDatabase(unittest.TestCase):
     """Test cases for the CloudSpannerDatabase class"""
 
+    @patch("spanner_graphs.cloud_database._get_default_credentials_with_project")
     @patch("spanner_graphs.cloud_database.spanner.Client")
-    def test_execute_query(self, mock_client: MagicMock) -> None:
+    def test_execute_query(self, mock_client: MagicMock, mock_creds: MagicMock) -> None:
         """Test that a query is executed correctly"""
+        mock_creds.return_value = (MagicMock(), "test-project")
         mock_instance = MagicMock()
         mock_database = MagicMock()
         mock_snapshot = MagicMock()
