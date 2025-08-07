@@ -100,10 +100,7 @@ class TestPropertyTypeHandling(unittest.TestCase):
 
                 self.assertIn('@p0', last_call[0][3])
                 self.assertEqual(query_params['p0'], value)
-                if type_str == 'FLOAT32':
-                    self.assertEqual(param_types['p0'], mock_spanner.param_types.FLOAT64)
-                else:
-                    self.assertEqual(param_types['p0'], getattr(mock_spanner.param_types, type_str))
+                self.assertEqual(param_types['p0'], getattr(mock_spanner.param_types, type_str))
 
 
     @patch('spanner_graphs.graph_server.execute_query')
