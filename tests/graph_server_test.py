@@ -53,8 +53,9 @@ class TestPropertyTypeHandling(unittest.TestCase):
                     self.assertIn("Invalid property type", str(cm.exception))
                     self.assertIn("Allowed types are:", str(cm.exception))
 
+    @patch('spanner_graphs.graph_server.spanner')
     @patch('spanner_graphs.graph_server.execute_query')
-    def test_property_value_formatting(self, mock_execute_query):
+    def test_property_value_formatting(self, mock_execute_query, mock_spanner):
         """Test that property values are correctly formatted based on their type."""
         mock_execute_query.return_value = {"response": {"nodes": [], "edges": []}}
 
@@ -99,7 +100,10 @@ class TestPropertyTypeHandling(unittest.TestCase):
 
                 self.assertIn('@p0', last_call[0][3])
                 self.assertEqual(query_params['p0'], value)
-                self.assertIsNotNone(param_types['p0'])
+                if type_str == 'FLOAT32':
+                    self.assertEqual(param_types['p0'], mock_spanner.param_types.FLOAT64)
+                else:
+                    self.assertEqual(param_types['p0'], getattr(mock_spanner.param_types, type_str))
 
 
     @patch('spanner_graphs.graph_server.execute_query')

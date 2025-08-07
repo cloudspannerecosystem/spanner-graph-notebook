@@ -33,7 +33,6 @@ PROPERTY_TYPE_SET = {
     'BOOL',
     'BYTES',
     'DATE',
-    'ENUM',
     'INT64',
     'NUMERIC',
     'FLOAT32',
@@ -190,7 +189,10 @@ def execute_node_expansion(
         param_name = f"p{i}"
         node_property_strings.append(f"n.{node_property.key} = @{param_name}")
         query_params[param_name] = node_property.value
-        param_types[param_name] = getattr(spanner.param_types, node_property.type_str)
+        param_type = node_property.type_str
+        if param_type == 'FLOAT32':
+            param_type = 'FLOAT64'
+        param_types[param_name] = getattr(spanner.param_types, param_type)
 
     where_clause = " and ".join(node_property_strings)
     if where_clause:
