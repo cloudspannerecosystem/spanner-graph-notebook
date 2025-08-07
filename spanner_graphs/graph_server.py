@@ -23,6 +23,7 @@ import requests
 import portpicker
 import atexit
 
+from google.cloud import spanner
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.database import SpannerQueryResult
@@ -171,7 +172,6 @@ def execute_node_expansion(
 
     edge = "e" if not edge_label else f"e:{edge_label}"
 
-    # Build the path pattern based on direction
     path_pattern = (
         f"(n)-[{edge}]->(d)"
         if direction == EdgeDirection.OUTGOING
@@ -182,29 +182,35 @@ def execute_node_expansion(
     if node_labels and len(node_labels) > 0:
         node_label_str = f": {' & '.join(node_labels)}"
 
+    query_params = {"uid": uid}
+    param_types = {"uid": spanner.param_types.STRING}
     node_property_strings: list[str] = []
-    for node_property in node_properties:
-        value_str: str
-        if node_property.type_str in ('INT64', 'NUMERIC', 'FLOAT32', 'FLOAT64', 'BOOL'):
-            value_str = node_property.value
-        else:
-            value_str = f"\'''{node_property.value}\'''"
-        node_property_strings.append(f"n.{node_property.key}={value_str}")
+
+    for i, node_property in enumerate(node_properties):
+        param_name = f"p{i}"
+        node_property_strings.append(f"n.{node_property.key} = @{param_name}")
+        query_params[param_name] = node_property.value
+        param_types[param_name] = getattr(spanner.param_types, node_property.type_str)
+
+    where_clause = " and ".join(node_property_strings)
+    if where_clause:
+        where_clause += " and "
+    where_clause += "STRING(TO_JSON(n).identifier) = @uid"
 
     query = f"""
         GRAPH {graph}
-        LET uid = "{uid}"
         MATCH (n{node_label_str})
-        WHERE {' and '.join(node_property_strings)} {'and' if node_property_strings else ''} STRING(TO_JSON(n).identifier) = uid
+        WHERE {where_clause}
         RETURN n
 
         NEXT
 
         MATCH {path_pattern}
+        WHERE STRING(TO_JSON(n).identifier) = @uid
         RETURN TO_JSON(e) as e, TO_JSON(d) as d
         """
 
-    return execute_query(project, instance, database, query, mock=False)
+    return execute_query(project, instance, database, query, mock=False, params=query_params, param_types=param_types)
 
 def execute_query(
     project: str,

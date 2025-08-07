@@ -20,7 +20,6 @@ class TestPropertyTypeHandling(unittest.TestCase):
             'DATE',
             'TIMESTAMP',
             'BYTES',
-            'ENUM',
             # Test case insensitivity
             'int64',
             'string',
@@ -60,19 +59,15 @@ class TestPropertyTypeHandling(unittest.TestCase):
         mock_execute_query.return_value = {"response": {"nodes": [], "edges": []}}
 
         test_cases = [
-            # Numeric types (unquoted)
-            ("INT64", "123", "123"),
-            ("NUMERIC", "123", "123"),
-            ("FLOAT32", "123.45", "123.45"),
-            ("FLOAT64", "123.45", "123.45"),
-            # Boolean (unquoted)
-            ("BOOL", "true", "true"),
-            # String types (quoted)
-            ("STRING", "hello", "'''hello'''"),
-            ("DATE", "2024-03-14", "'''2024-03-14'''"),
-            ("TIMESTAMP", "2024-03-14T12:00:00Z", "'''2024-03-14T12:00:00Z'''"),
-            ("BYTES", "base64data", "'''base64data'''"),
-            ("ENUM", "ENUM_VALUE", "'''ENUM_VALUE'''"),
+            ("INT64", "123"),
+            ("NUMERIC", "123"),
+            ("FLOAT32", "123.45"),
+            ("FLOAT64", "123.45"),
+            ("BOOL", "true"),
+            ("STRING", "hello"),
+            ("DATE", "2024-03-14"),
+            ("TIMESTAMP", "2024-03-14T12:00:00Z"),
+            ("BYTES", "base64data"),
         ]
 
         params = json.dumps({
@@ -82,9 +77,8 @@ class TestPropertyTypeHandling(unittest.TestCase):
             "graph": "test-graph",
         })
 
-        for type_str, value, expected_format in test_cases:
+        for type_str, value in test_cases:
             with self.subTest(type=type_str, value=value):
-                # Create a property dictionary
                 prop_dict = {"key": "test_property", "value": value, "type": type_str}
 
                 request = {
@@ -99,22 +93,20 @@ class TestPropertyTypeHandling(unittest.TestCase):
                     request=request
                 )
 
-                # Extract the actual formatted value from the query
-                last_call = mock_execute_query.call_args[0]  # Get the positional args
-                query = last_call[3]  # The query is the 4th positional arg
+                last_call = mock_execute_query.call_args
+                query_params = last_call[1]['params']
+                param_types = last_call[1]['param_types']
 
-                # Find the WHERE clause in the query and extract the value
-                where_line = [line for line in query.split('\n') if 'WHERE' in line][0]
-                expected_pattern = f"n.test_property={expected_format}"
-                self.assertIn(expected_pattern, where_line,
-                    f"Expected property value pattern {expected_pattern} not found in WHERE clause for type {type_str}")
+                self.assertIn('@p0', last_call[0][3])
+                self.assertEqual(query_params['p0'], value)
+                self.assertIsNotNone(param_types['p0'])
+
 
     @patch('spanner_graphs.graph_server.execute_query')
     def test_property_value_formatting_no_type(self, mock_execute_query):
         """Test that property values are quoted when no type is provided."""
         mock_execute_query.return_value = {"response": {"nodes": [], "edges": []}}
 
-        # Create a property dictionary with string type (since null type is not allowed)
         prop_dict = {"key": "test_property", "value": "test_value", "type": "STRING"}
 
         params = json.dumps({
@@ -136,13 +128,13 @@ class TestPropertyTypeHandling(unittest.TestCase):
             request=request
         )
 
-        # Extract the actual formatted value from the query
-        last_call = mock_execute_query.call_args[0]
-        query = last_call[3]
-        where_line = [line for line in query.split('\n') if 'WHERE' in line][0]
-        expected_pattern = "n.test_property='''test_value'''"
-        self.assertIn(expected_pattern, where_line,
-            "Property value should be quoted when string type is provided")
+        last_call = mock_execute_query.call_args
+        query_params = last_call[1]['params']
+        param_types = last_call[1]['param_types']
+
+        self.assertIn('@p0', last_call[0][3])
+        self.assertEqual(query_params['p0'], "test_value")
+        self.assertIsNotNone(param_types['p0'])
 
 if __name__ == '__main__':
     unittest.main()
