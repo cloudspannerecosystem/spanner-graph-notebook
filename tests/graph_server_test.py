@@ -98,10 +98,59 @@ class TestPropertyTypeHandling(unittest.TestCase):
                 query_params = last_call[1]['params']
                 param_types = last_call[1]['param_types']
 
-                self.assertIn('@p0', last_call[0][3])
+                query = last_call[0][3]
+                where_clause = [line.strip() for line in query.split('\n') if 'WHERE' in line][0]
+                expected_where = "WHERE n.test_property = @p0 and STRING(TO_JSON(n).identifier) = @uid"
+                self.assertEqual(where_clause, expected_where)
+
                 self.assertEqual(query_params['p0'], value)
                 self.assertEqual(param_types['p0'], getattr(mock_spanner.param_types, type_str))
 
+
+    @patch('spanner_graphs.graph_server.spanner')
+    @patch('spanner_graphs.graph_server.execute_query')
+    def test_property_value_formatting_multiple_properties(self, mock_execute_query, mock_spanner):
+        """Test that multiple property values are correctly formatted."""
+        mock_execute_query.return_value = {"response": {"nodes": [], "edges": []}}
+
+        props = [
+            {"key": "age", "value": 30, "type": "INT64"},
+            {"key": "name", "value": "John", "type": "STRING"},
+        ]
+
+        params = json.dumps({
+            "project": "test-project",
+            "instance": "test-instance",
+            "database": "test-database",
+            "graph": "test-graph",
+        })
+
+        request = {
+            "uid": "test-uid",
+            "node_labels": ["Person"],
+            "node_properties": props,
+            "direction": "OUTGOING"
+        }
+
+        execute_node_expansion(
+            params_str=params,
+            request=request
+        )
+
+        last_call = mock_execute_query.call_args
+        query_params = last_call[1]['params']
+        param_types = last_call[1]['param_types']
+
+        query = last_call[0][3]
+        where_clause = [line.strip() for line in query.split('\n') if 'WHERE' in line][0]
+        expected_where = "WHERE n.age = @p0 and n.name = @p1 and STRING(TO_JSON(n).identifier) = @uid"
+        self.assertEqual(where_clause, expected_where)
+
+        self.assertEqual(query_params['p0'], 30)
+        self.assertEqual(param_types['p0'], mock_spanner.param_types.INT64)
+
+        self.assertEqual(query_params['p1'], "John")
+        self.assertEqual(param_types['p1'], mock_spanner.param_types.STRING)
 
     @patch('spanner_graphs.graph_server.execute_query')
     def test_property_value_formatting_no_type(self, mock_execute_query):
