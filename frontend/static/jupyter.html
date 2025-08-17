@@ -1,4 +1,4 @@
-<!--
+<!-- 
 Copyright 2025 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +15,524 @@ limitations under the License.
  -->
 
 <style>
+    .visualization-wrapper {
+        position: relative;
+        width: 100%;
+        height: 600px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
     .dots {
         background-image: url('data:image/svg+xml;base64,{{ graph_background_image }}');
         background-repeat: repeat;
     }
+
+    .config-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        width: 500px;
+        max-width: 90%;
+        display: none;
+        backdrop-filter: blur(5px);
+    }
+
+    .config-overlay.show {
+        display: block;
+    }
+
+    .config-toggle {
+        position: absolute;
+        bottom: 0px;
+        left: 50%;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+        z-index: 1001;
+        font-size: 12px;
+    }
+
+    .config-toggle:hover {
+        background: #0056b3;
+    }
+
+    .config-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .config-form .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .config-form .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .config-form label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .config-form input[type="text"],
+    .config-form textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: normal;
+        margin-top: 6px;
+    }
+
+    .config-form textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 10px;
+    }
+
+    .config-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 10px;
+        grid-column: 1 / -1;
+    }
+
+    .config-buttons button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .cancel-btn {
+        background: #6c757d;
+        color: white;
+    }
+
+    .cancel-btn:hover {
+        background: #545b62;
+    }
+
+    .visualize-btn {
+        background: #007bff;
+        color: white;
+    }
+
+    .visualize-btn:hover {
+        background: #0056b3;
+    }
+
+    .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 8px;
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: #666;
+        line-height: 1;
+    }
+
+    .close-btn:hover {
+        color: #333;
+    }
+
+    .dropdown-container {
+        position: relative;
+        width: 100%;
+    }
+
+    .dropdown-list {
+        position: absolute;
+        z-index: 9999;
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        background: white;
+        display: none;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .dropdown-list div {
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+
+    .dropdown-list div:hover {
+        background-color: #f0f0f0;
+    }
 </style>
-<div class="mount-{{ id }}"></div>
+
+<div class="visualization-wrapper" data-id="{{ id }}" data-show-config="{{ show_config_on_load }}" data-base-url="{{ base_url }}">
+    <button class="config-toggle" onclick="toggleConfig_{{ id }}(this)">Re-Configure</button>
+
+    <div class="config-overlay">
+        <button class="close-btn" onclick="hideConfig_{{ id }}(this)">&times;</button>
+        <h3>Configure Visualization</h3>
+
+        <form class="config-form">
+            <div class="form-group">
+                <label>Project ID</label>
+                <div class="dropdown-container">
+                    <input type="text" class="project" placeholder="Search Project ID..." onfocus="populateDropdown_{{ id }}(this, 'project')" oninput="filterDropdown_{{ id }}(this, 'project')">
+                    <div class="dropdown-list project-list"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Instance ID</label>
+                <div class="dropdown-container">
+                    <input type="text" class="instance" placeholder="Search Instance ID..." onfocus="populateDropdown_{{ id }}(this, 'instance')" oninput="filterDropdown_{{ id }}(this, 'instance')">
+                    <div class="dropdown-list instance-list"></div>
+                </div>
+            </div>
+
+            <div class="form-group full-width">
+                <label>Database</label>
+                <div class="dropdown-container">
+                    <input type="text" class="database" placeholder="Search Database..." onfocus="populateDropdown_{{ id }}(this, 'database')" oninput="filterDropdown_{{ id }}(this, 'database')">
+                    <div class="dropdown-list database-list"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" class="mock" {{ 'checked' if params.mock else '' }}>
+                    <span>Use mock data</span>
+                </label>
+            </div>
+
+            <div class="form-group full-width">
+                <label>QUERY</label>
+                <textarea class="query" placeholder="GRAPH MyGraph
+MATCH p = (a)-[e]->(b)
+RETURN TO_JSON(p) AS path_json
+LIMIT 50"></textarea>
+            </div>
+
+            <div class="config-buttons">
+                <button type="button" class="cancel-btn" onclick="hideConfig_{{ id }}(this)">Cancel</button>
+                <button type="button" class="visualize-btn" onclick="applyConfig_{{ id }}(this)">Visualize Graph</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="graph-container dots"></div>
+</div>
 
 {{ bundled_js_code }}
 
 <script>
-    (() => {
-        new SpannerApp(
-            {
-                id: `{{ id }}`,
-                mount: document.querySelector('div.mount-{{ id }}'),
-                port: `{{ port }}`,
-                params: `{{ params }}`,
-                query: `{{ query }}`,
+    function isColabEnv() {
+        return typeof google !== 'undefined' && google.colab && google.colab.kernel;
+    }
+    (function() {
+        {{loader_js_code | safe}}
+        const projects_{{ id }} = {{ projects | safe }};
+        const port_{{ id }} = {{ port }};
+        const queryData_{{ id }} = {{ query | tojson }};
+        const params_{{ id }} = {{ params | safe }};
+        const showConfig_{{ id }} = {{ show_config_on_load | tojson }};
+        const wrapperId_{{ id }} = "{{ id }}";
+
+        function getWrapper_{{ id }}(el) {
+            return el.closest(`[data-id="${wrapperId_{{ id }}}"]`);
+        }
+
+        window.toggleConfig_{{ id }} = function(button) {
+            const wrapper = getWrapper_{{ id }}(button);
+            wrapper.querySelector('.config-overlay').classList.toggle('show');
+        };
+
+        window.hideConfig_{{ id }} = function(button) {
+            const wrapper = getWrapper_{{ id }}(button);
+            wrapper.querySelector('.config-overlay').classList.remove('show');
+        };
+
+        window.applyConfig_{{ id }} = function(button) {
+            const wrapper = getWrapper_{{ id }}(button);
+            const project = wrapper.querySelector('.project').value.trim();
+            const instance = wrapper.querySelector('.instance').value.trim();
+            const database = wrapper.querySelector('.database').value.trim();
+            const query = wrapper.querySelector('.query').value.trim();
+            const mock = wrapper.querySelector('.mock').checked;
+
+            if (!mock && (!project || !instance || !database)) {
+                alert('Please fill in Project ID, Instance ID, and Database.');
+                return;
             }
-        );
-    })()
-</script> 
+
+            if (!query) {
+                alert('Please enter a query.');
+                return;
+            }
+
+            let graph = "";
+            if (query.toUpperCase().includes("GRAPH ")) {
+                const match = query.match(/GRAPH\s+(\w+)/i);
+                if (match) {
+                    graph = match[1];
+                }
+            }
+
+            const newParams = { project, instance, database, mock, graph };
+            const mount = wrapper.querySelector('.graph-container');
+            mount.innerHTML = '';
+
+            try {
+                new SpannerApp({
+                    id: wrapperId_{{ id }},
+                    mount: mount,
+                    port: port_{{ id }},
+                    params: JSON.stringify(newParams),
+                    query: query
+                });
+            } catch (err) {
+                console.error(err);
+                mount.innerHTML = `<div style="padding: 20px; color: red;">Error: ${err.message}</div>`;
+            }
+
+            hideConfig_{{ id }}(button);
+        };
+
+        window.populateDropdown_{{ id }} = function(input, field) {
+            const wrapper = getWrapper_{{ id }}(input);
+            const project = wrapper.querySelector('.project').value;
+            const instance = wrapper.querySelector('.instance').value;
+
+            let items = [];
+            const listEl = wrapper.querySelector(`.${field}-list`);
+            listEl.innerHTML = '';
+
+            if (field === 'project') {
+                items = (projects_{{ id }}.projects || []).map(p => p.projectId);
+                items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        wrapper.querySelector(`.${field}`).value = item;
+                        listEl.style.display = 'none';
+                        fetchInstances_{{ id }}(item, wrapper);
+                    };
+                    listEl.appendChild(div);
+                });
+            } else if (field === 'instance') {
+                const cached = input.dataset.options?.split(',') || [];
+                cached.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        wrapper.querySelector(`.${field}`).value = item;
+                        listEl.style.display = 'none';
+                        fetchDatabases_{{ id }}(project, item, wrapper);
+                    };
+                    listEl.appendChild(div);
+                });
+            } else if (field === 'database') {
+                const cached = input.dataset.options?.split(',') || [];
+                cached.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        wrapper.querySelector(`.${field}`).value = item;
+                        listEl.style.display = 'none';
+                    };
+                    listEl.appendChild(div);
+                });
+            }
+
+            listEl.style.display = 'block';
+        };
+
+        window.filterDropdown_{{ id }} = function(input, field) {
+            populateDropdown_{{ id }}(input, field);
+            const wrapper = getWrapper_{{ id }}(input);
+            const filter = input.value.toLowerCase();
+            const listEl = wrapper.querySelector(`.${field}-list`);
+            Array.from(listEl.children).forEach(child => {
+                child.style.display = child.textContent.toLowerCase().includes(filter) ? 'block' : 'none';
+            });
+        };
+        async function fetchInstances_{{ id }}(projectId, wrapper) {
+            const input = wrapper.querySelector('.instance');
+            const listEl = wrapper.querySelector('.instance-list');
+            input.value = '';
+            input.dataset.options = '';
+            listEl.innerHTML = '';
+
+            const baseUrl = wrapper.dataset.baseUrl;
+            //const isColab = typeof google !== 'undefined' && google.colab && google.colab.kernel;
+
+            try {
+                showLoader("Fetching instances...", wrapper);
+
+                let instances = [];
+
+                if (isColabEnv()) {
+                    const response = await google.colab.kernel.invokeFunction(
+                        'graph_visualization.GetInstances',
+                        [projectId],
+                        {}
+                    );
+                    const payload = response.data?.['application/json'];
+                    if (!payload || !Array.isArray(payload.instances)) {
+                        throw new Error("Invalid or missing instance list");
+                    }
+
+                    instances = payload.instances;
+                } else {
+                    const url = `${baseUrl}/get_instances?project=${projectId}`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("Something went wrong while fetching instances");
+                    const data = await res.json();
+                    instances = data.instances;
+                }
+
+                input.dataset.options = instances.join(',');
+                instances.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        input.value = item;
+                        listEl.style.display = 'none';
+                        fetchDatabases_{{ id }}(projectId, item, wrapper);
+                    };
+                    listEl.appendChild(div);
+                });
+                listEl.style.display = 'block';
+            } catch (err) {
+                console.error('Error fetching instances:', err);
+            } finally {
+                removeLoader(wrapper);
+            }
+        }
+
+        async function fetchDatabases_{{ id }}(projectId, instanceId, wrapper) {
+            const input = wrapper.querySelector('.database');
+            const listEl = wrapper.querySelector('.database-list');
+            input.value = '';
+            input.dataset.options = '';
+            listEl.innerHTML = '';
+
+            const baseUrl = wrapper.dataset.baseUrl;
+            //const isColab = typeof google !== 'undefined' && google.colab && google.colab.kernel;
+
+            try {
+                showLoader("Fetching databases...", wrapper);
+
+                let databases = [];
+
+                if (isColabEnv()) {
+                    const response = await google.colab.kernel.invokeFunction(
+                        'graph_visualization.GetDatabases',
+                        [projectId, instanceId],
+                        {}
+                    );
+                    const payload = response.data?.['application/json'];
+                    if (!payload || !Array.isArray(payload.databases)) {
+                        throw new Error("Invalid or missing instance list");
+                    }
+
+                    databases = payload.databases;
+                } else {
+                    const url = `${baseUrl}/get_databases?project=${projectId}&instance=${instanceId}`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("Something went wrong while fetching databases");
+                    const data = await res.json();
+                    databases = data.databases;
+                }
+
+                input.dataset.options = databases.join(',');
+                databases.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.onclick = () => {
+                        input.value = item;
+                        listEl.style.display = 'none';
+                    };
+                    listEl.appendChild(div);
+                });
+                listEl.style.display = 'block';
+            } catch (err) {
+                console.error('Error fetching databases:', err);
+            } finally {
+                removeLoader(wrapper);
+            }
+        }
+        
+        const wrapper = document.querySelector(`[data-id="${wrapperId_{{ id }}}"]`);
+        if (wrapper) {
+            const mount = wrapper.querySelector('.graph-container');
+            const projectInput = wrapper.querySelector('.project');
+            const instanceInput = wrapper.querySelector('.instance');
+            const databaseInput = wrapper.querySelector('.database');
+            const queryInput = wrapper.querySelector('.query');
+            const mockInput = wrapper.querySelector('.mock');
+
+            if (projectInput) projectInput.value = params_{{ id }}.project || '';
+            if (instanceInput) instanceInput.value = params_{{ id }}.instance || '';
+            if (databaseInput) databaseInput.value = params_{{ id }}.database || '';
+            if (queryInput) queryInput.value = queryData_{{ id }} || '';
+            if (mockInput) mockInput.checked = params_{{ id }}.mock || false;
+
+            if (showConfig_{{ id }}) {
+                wrapper.querySelector('.config-overlay').classList.add('show');
+            } else {
+                new SpannerApp({
+                    id: wrapperId_{{ id }},
+                    mount,
+                    port: port_{{ id }},
+                    params: JSON.stringify(params_{{ id }}),
+                    query: queryData_{{ id }}
+                });
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const wrapper = document.querySelector(`[data-id="${wrapperId_{{ id }}}"]`);
+                if (wrapper) {
+                    const overlay = wrapper.querySelector('.config-overlay.show');
+                    if (overlay) {
+                        overlay.classList.remove('show');
+                    }
+                }
+            }
+        });
+    })();
+</script>

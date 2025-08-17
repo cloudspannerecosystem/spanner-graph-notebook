@@ -44,7 +44,7 @@ def _load_image(path: list[str]) -> str:
         with open(file_path, 'rb') as file:
             return base64.b64decode(file.read()).decode('utf-8')
 
-def generate_visualization_html(query: str, port: int, params: str):
+def generate_visualization_html(query: str, port: int, params: str, show_config_on_load: bool = False, projects: str = "{}", base_url: str = None, host: str = "localhost"):
         # Get the directory of the current file (magics.py)
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,7 +57,9 @@ def generate_visualization_html(query: str, port: int, params: str):
             search_dir = parent
 
         template_content = _load_file([search_dir, 'frontend', 'static', 'jupyter.html'])
-        
+
+        loader_js_code = _load_file([search_dir, 'frontend', 'src', 'authLoader.js'])
+
         # Load the JavaScript bundle directly
         js_file_path = os.path.join(search_dir, 'third_party', 'index.js')
         try:
@@ -70,6 +72,9 @@ def generate_visualization_html(query: str, port: int, params: str):
         # Retrieve image content
         graph_background_image = _load_image([search_dir, "frontend", "static", "graph-bg.svg"])
 
+        if base_url is None:
+            base_url = f"http://{host}:{port}"
+
         # Create a Jinja2 template
         template = Template(template_content)
 
@@ -80,6 +85,10 @@ def generate_visualization_html(query: str, port: int, params: str):
             query=query,
             params=params,
             port=port,
+            base_url=base_url,
+            show_config_on_load=show_config_on_load,
+            projects=projects,
+            loader_js_code=loader_js_code,
             id=uuid.uuid4().hex # Prevent html/js selector collisions between cells
         )
 

@@ -22,10 +22,14 @@ from typing import Union, Dict, Any
 import requests
 import portpicker
 import atexit
+from datetime import datetime
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.database import SpannerQueryResult
+from google.cloud import spanner
+from spanner_graphs.gcp_helper import GcpHelper
+from urllib.parse import urlparse, parse_qs
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
@@ -51,6 +55,9 @@ class NodePropertyForDataExploration:
 class EdgeDirection(Enum):
     INCOMING = "INCOMING"
     OUTGOING = "OUTGOING"
+
+cached_credentials = None
+
 
 def is_valid_property_type(property_type: str) -> bool:
     """
@@ -145,14 +152,18 @@ def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploratio
 
     return validated_properties, direction
 
+
 def execute_node_expansion(
     params_str: str,
-    request: dict) -> dict:
+    request: dict
+) -> dict:
     """Execute a node expansion query to find connected nodes and edges.
 
     Args:
-        params_str: A JSON string containing connection parameters (project, instance, database, graph, mock).
-        request: A dictionary containing node expansion request details (uid, node_labels, node_properties, direction, edge_label).
+        params_str: A JSON string containing connection parameters (project,
+        instance, database, graph, mock).
+        request: A dictionary containing node expansion request details (uid,
+        node_labels, node_properties, direction, edge_label).
 
     Returns:
         dict: A dictionary containing the query response with nodes and edges.
@@ -182,20 +193,51 @@ def execute_node_expansion(
     if node_labels and len(node_labels) > 0:
         node_label_str = f": {' & '.join(node_labels)}"
 
-    node_property_strings: list[str] = []
-    for node_property in node_properties:
-        value_str: str
-        if node_property.type_str in ('INT64', 'NUMERIC', 'FLOAT32', 'FLOAT64', 'BOOL'):
-            value_str = node_property.value
-        else:
-            value_str = f"\'''{node_property.value}\'''"
-        node_property_strings.append(f"n.{node_property.key}={value_str}")
+    node_property_clauses: list[str] = []
+    params_dict: dict = {}
+    param_types_dict: dict = {}
+
+    for i, node_property in enumerate(node_properties):
+        param_name = f"param_{i}"
+        node_property_clauses.append(f"n.{node_property.key} = @{param_name}")
+
+        # Convert value to native Python type
+        type_str = node_property.type_str
+        value = node_property.value
+
+        if type_str in ("INT64", "NUMERIC"):
+            value_casting = int(value)
+            param_type = spanner.param_types.INT64
+        elif type_str in ("FLOAT32", "FLOAT64"):
+            value_casting = float(value)
+            param_type = spanner.param_types.FLOAT64
+        elif type_str == "BOOL":
+            value_casting = value.lower() == "true"
+            param_type = spanner.param_types.BOOL
+        elif type_str == "STRING":
+            value_casting = str(value)
+            param_type = spanner.param_types.STRING
+        elif type_str == "DATE":
+            value_casting = datetime.strptime(value, "%Y-%m-%d").date()
+            param_type = spanner.param_types.DATE
+        elif type_str == "TIMESTAMP":
+            value_casting = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            param_type = spanner.param_types.TIMESTAMP
+
+        params_dict[param_name] = value_casting
+        param_types_dict[param_name] = param_type
+
+    filtered_uid = "STRING(TO_JSON(n).identifier) = @uid"
+    params_dict["uid"] = str(uid)
+    param_types_dict["uid"] = spanner.param_types.STRING
+
+    where_clauses = node_property_clauses + [filtered_uid]
+    where_clause_str = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
     query = f"""
         GRAPH {graph}
-        LET uid = "{uid}"
         MATCH (n{node_label_str})
-        WHERE {' and '.join(node_property_strings)} {'and' if node_property_strings else ''} STRING(TO_JSON(n).identifier) = uid
+        {where_clause_str}
         RETURN n
 
         NEXT
@@ -204,7 +246,11 @@ def execute_node_expansion(
         RETURN TO_JSON(e) as e, TO_JSON(d) as d
         """
 
-    return execute_query(project, instance, database, query, mock=False)
+    return execute_query(
+        project, instance, database, query, mock=False,
+        params=params_dict, param_types=param_types_dict
+    )
+
 
 def execute_query(
     project: str,
@@ -212,6 +258,8 @@ def execute_query(
     database: str,
     query: str,
     mock: bool = False,
+    params: Dict[str, Any] = None,
+    param_types: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """Executes a query against a database and formats the result.
 
@@ -233,7 +281,11 @@ def execute_query(
     """
     try:
         db_instance = get_database_instance(project, instance, database, mock)
-        result: SpannerQueryResult = db_instance.execute_query(query)
+        result: SpannerQueryResult = db_instance.execute_query(
+            query,
+            params=params,
+            param_types=param_types
+        )
 
         if len(result.rows) == 0 and result.err:
             error_message = f"Query error: \n{getattr(result.err, 'message', str(result.err))}"
@@ -257,7 +309,8 @@ def execute_query(
             }
 
         # Process a successful query result
-        nodes, edges = get_nodes_edges(result.data, result.fields, result.schema_json)
+        nodes, edges = get_nodes_edges(result.data, result.fields,
+                                       result.schema_json)
 
         return {
             "response": {
@@ -282,6 +335,11 @@ class GraphServer:
         "post_ping": "/post_ping",
         "post_query": "/post_query",
         "post_node_expansion": '/post_node_expansion',
+        "gcp_projects": '/gcp_projects',
+        "get_instances": '/get_instances',
+        "get_databases": '/get_databases',
+        "save_config": '/save_config',
+        "get_saved_config": '/get_saved_config'
     }
 
     _server = None
@@ -352,8 +410,17 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-type", "application/json")
         self.send_header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
 
     def do_message_response(self, message):
         self.do_json_response({'message': message})
@@ -411,9 +478,96 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.do_error_response(e)
             return
 
+    def get_gcp_resources(self):
+        try:
+            # Always fetch fresh data
+            credentials = GcpHelper.get_default_credentials_with_project()
+            gcp_data = GcpHelper.fetch_all_gcp_resources(credentials)
+            self.do_json_response(gcp_data)
+        except Exception as e:
+            self.do_error_response(str(e))
+            
+    def get_gcp_projects_only(self):
+        global cached_credentials
+        try:
+            if not cached_credentials:
+                cached_credentials = GcpHelper.get_default_credentials_with_project()
+            projects = GcpHelper.fetch_gcp_projects(cached_credentials)
+            self.do_json_response({"projects": projects})
+        except Exception as e:
+            self.do_error_response(str(e))
+
+    def handle_get_instances(self):
+        global cached_credentials
+        try:
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            project_id = params.get("project", [None])[0]
+
+            if not project_id:
+                self.do_error_response("project_id is missing")
+                return
+
+            if not cached_credentials:
+                cached_credentials = GcpHelper.get_default_credentials_with_project()
+
+            instances = GcpHelper.fetch_project_instances(cached_credentials, project_id)
+
+            self.do_json_response({"instances": instances})
+
+        except Exception as e:
+            self.do_error_response(str(e))
+
+    def handle_get_databases(self):
+        global cached_credentials
+        try:
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            project_id = params.get("project", [None])[0]
+            instance_id = params.get("instance", [None])[0]
+
+            if not project_id or not instance_id:
+                self.do_error_response("both project_id and instance_id are required")
+                return
+
+            if not cached_credentials:
+                cached_credentials = GcpHelper.get_default_credentials_with_project()
+
+            databases = GcpHelper.fetch_instance_databases(cached_credentials, project_id, instance_id)
+
+            self.do_json_response({"databases": databases})
+
+        except Exception as e:
+            self.do_error_response(str(e))
+
+    def handle_save_user_data(self):
+        print("handle user data function")
+        global saved_user_config
+        try:
+            data = self.parse_post_data()
+            saved_user_config = data
+            self.do_json_response({"status": "saved"})
+        except Exception as e:
+            self.do_error_response(str(e))
+
+    def get_saved_user_data(self):
+        print("get user data")
+        global saved_user_config
+        self.do_data_response(saved_user_config)
+
     def do_GET(self):
+        parsed_path = urlparse(self.path).path
+        print(parsed_path)
         if self.path == GraphServer.endpoints["get_ping"]:
             self.handle_get_ping()
+        elif parsed_path == GraphServer.endpoints["get_instances"]:
+            self.handle_get_instances()
+        elif parsed_path == GraphServer.endpoints["get_databases"]:
+            self.handle_get_databases()
+        elif self.path == GraphServer.endpoints["gcp_projects"]:
+            self.get_gcp_projects_only()
+        elif self.path == GraphServer.endpoints["get_saved_config"]:
+            self.get_saved_user_data()
         else:
             super().do_GET()
 
@@ -424,5 +578,7 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_post_query()
         elif self.path == GraphServer.endpoints["post_node_expansion"]:
             self.handle_post_node_expansion()
+        elif self.path == GraphServer.endpoints['save_config']:
+            self.handle_save_user_data()
 
 atexit.register(GraphServer.stop_server)

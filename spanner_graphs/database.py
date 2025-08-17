@@ -19,12 +19,13 @@ via snapshot queries.
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, NamedTuple
+from typing import Any, Dict, List, NamedTuple
 import json
 import os
 import csv
 
 from dataclasses import dataclass
+
 
 class SpannerQueryResult(NamedTuple):
     # A dict where each key is a field name returned in the query and the list
@@ -38,6 +39,7 @@ class SpannerQueryResult(NamedTuple):
     schema_json: Any | None
     # The error message if any
     err: Exception | None
+
 
 class SpannerDatabase(ABC):
     """The spanner class holding the database connection"""
@@ -54,6 +56,7 @@ class SpannerDatabase(ABC):
     def execute_query(
         self,
         query: str,
+        params: Dict[str, Any] = None,
         limit: int = None,
         is_test_query: bool = False,
     ) -> SpannerQueryResult:
@@ -96,6 +99,7 @@ class MockSpannerResult:
     def __iter__(self):
         return iter(self._rows)
 
+
 class MockSpannerDatabase():
     """Mock database class"""
 
@@ -110,6 +114,8 @@ class MockSpannerDatabase():
     def execute_query(
         self,
         _: str,
+        params: Dict[str, Any] = None,
+        param_types: Dict[str, Any] = None,
         limit: int = 5
     ) -> SpannerQueryResult:
         """Mock execution of query"""

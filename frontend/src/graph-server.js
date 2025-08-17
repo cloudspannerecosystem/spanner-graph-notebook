@@ -30,6 +30,12 @@ class GraphServer {
         getPing: '/get_ping',
         postQuery: '/post_query',
         postNodeExpansion: '/post_node_expansion',
+        gcpProjects:'/gcp_projects',
+        getInstances: '/get_instances',
+        getDatabases: '/get_databases',
+        saveConfig: '/save_config',
+        getSavedConfig: '/get_saved_config'
+
     };
 
     /**

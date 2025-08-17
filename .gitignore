@@ -3,6 +3,7 @@ keys/
 
 # local virtual env
 .venv/
+viz/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

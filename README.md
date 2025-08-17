@@ -163,3 +163,52 @@ npm install
 npm run test:unit
 npm run test:visual
 ```
+
+
+
+
+# Project setup
+
+```Clone the Project Repository``
+Run the following command to clone the repository:
+
+# git clone <repository-url>
+
+```Then navigate into the project directory```
+
+# cd spanner-graph-notebook
+
+```Create and Activate a Virtual Environment```
+
+# python -m venv venv
+
+```Activate the virtual environment```
+
+# source venv/bin/activate
+
+
+```Install Backend Python Packages```
+From the root project directory (spanner-graph-notebook), install the required Python packages:
+
+# pip install -e .
+
+```Install Frontend Dependencies```
+
+```avigate to the frontend directory```
+
+cd frontend
+
+```Install the Node.js dependencies```
+
+npm install
+
+```Start the Backend Server```
+Go to the backend development utility directory:
+
+cd ../spanner_graphs/dev_util
+
+```Start the development server```
+
+# python serve_dev.py
+
+
