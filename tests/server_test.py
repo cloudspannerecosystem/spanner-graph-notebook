@@ -16,6 +16,7 @@ import unittest
 import requests
 import json
 from spanner_graphs.graph_server import GraphServer
+from spanner_graphs.database import SpannerEnv
 
 class TestSpannerServer(unittest.TestCase):
     def setUp(self):
@@ -39,15 +40,15 @@ class TestSpannerServer(unittest.TestCase):
         """Test querying with mock database"""
         # Build the request URL
         route = GraphServer.build_route(GraphServer.endpoints["post_query"])
-        
+
         # Create request data with the new structure
         params = json.dumps({
-            "project": "test-project",
-            "instance": "test-instance",
-            "database": "test-database",
-            "mock": True
+            "selector": {
+                "env": str(SpannerEnv.MOCK)
+            },
+            "graph": "TestGraph"
         })
-        
+
         request_data = {
             "params": params,
             "query": "GRAPH TestGraph MATCH (n) RETURN n"
@@ -55,11 +56,11 @@ class TestSpannerServer(unittest.TestCase):
 
         # Send POST request
         response = requests.post(route, json=request_data)
-        
+
         # Verify response
         self.assertEqual(response.status_code, 200)
         response_data = response.json()
-        
+
         # Check response structure
         self.assertIn("response", response_data)
         response = response_data["response"]
@@ -72,13 +73,13 @@ class TestSpannerServer(unittest.TestCase):
         # Verify we got some data
         self.assertTrue(len(response["nodes"]) > 0, "Should have at least one node")
         self.assertTrue(len(response["edges"]) > 0, "Should have at least one edge")
-        
+
         # Verify node structure
         node = response["nodes"][0]
         self.assertIn("identifier", node)
         self.assertIn("labels", node)
         self.assertIn("properties", node)
-        
+
         # Verify edge structure
         edge = response["edges"][0]
         self.assertIn("identifier", edge)
@@ -91,25 +92,33 @@ class TestSpannerServer(unittest.TestCase):
         """Test that errors in node expansion are properly handled and returned."""
         # Build the request URL
         route = GraphServer.build_route(GraphServer.endpoints["post_node_expansion"])
-        
+
         # Create request data with invalid fields to trigger validation error
-        request_data = {
-            "project": "test-project",
-            "instance": "test-instance",
-            "database": "test-database",
+        params = {
+            "selector": {
+                "env": str(SpannerEnv.CLOUD),
+                "project_id": "test-project",
+                "instance_id": "test-instance",
+                "database_id": "test-database"
+            },
             "graph": "test-graph",
-            "uid": "test-uid",
-            # Missing required node_labels field
-            "direction": "INVALID_DIRECTION"  # Invalid direction
+        }
+        request_data = {
+            "params": json.dumps(params),
+            "request": {
+                "uid": "test-uid",
+                # Missing required node_labels field
+                "direction": "INVALID_DIRECTION"  # Invalid direction
+            }
         }
 
         # Send POST request
         response = requests.post(route, json=request_data)
-        
+
         # Verify response
         self.assertEqual(response.status_code, 200)  # Server still returns 200 but with error data
         response_data = response.json()
-        
+
         # Check error presence
         self.assertIn("error", response_data)
         self.assertIsNotNone(response_data["error"])

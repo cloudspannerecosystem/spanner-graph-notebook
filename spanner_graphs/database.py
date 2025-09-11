@@ -25,6 +25,63 @@ import os
 import csv
 
 from dataclasses import dataclass
+from enum import Enum, auto
+
+class SpannerEnv(Enum):
+    """Defines the types of Spanner environments the application can connect to."""
+    CLOUD = auto()
+    INFRA = auto()
+    MOCK = auto()
+
+@dataclass
+class DatabaseSelector:
+    """
+    A factory and configuration holder for Spanner database connection details.
+
+    This class provides a clean way to specify which Spanner database to connect to,
+    whether it's on Google Cloud, an internal infrastructure, or a local mock.
+
+    Attributes:
+        env: The Spanner environment type.
+        project: The Google Cloud project.
+        instance: The Spanner instance.
+        database: The Spanner database.
+        infra_db_path: The path for an internal infrastructure database.
+    """
+    env: SpannerEnv
+    project: str | None = None
+    instance: str | None = None
+    database: str | None = None
+    infra_db_path: str | None = None
+
+    @classmethod
+    def cloud(cls, project: str, instance: str, database: str) -> 'DatabaseSelector':
+        """Creates a selector for a Google Cloud Spanner database."""
+        if not project or not instance or not database:
+            raise ValueError("project, instance, and database are required for Cloud Spanner")
+        return cls(env=SpannerEnv.CLOUD, project=project, instance=instance, database=database)
+
+    @classmethod
+    def infra(cls, infra_db_path: str) -> 'DatabaseSelector':
+        """Creates a selector for an internal infrastructure Spanner database."""
+        if not infra_db_path:
+            raise ValueError("infra_db_path is required for Infra Spanner")
+        return cls(env=SpannerEnv.INFRA, infra_db_path=infra_db_path)
+
+    @classmethod
+    def mock(cls) -> 'DatabaseSelector':
+        """Creates a selector for a mock Spanner database."""
+        return cls(env=SpannerEnv.MOCK)
+
+    def get_key(self) -> str:
+        if self.env == SpannerEnv.CLOUD:
+            return f"cloud_{self.project}_{self.instance}_{self.database}"
+        elif self.env == SpannerEnv.INFRA:
+            return f"infra_{self.infra_db_path}"
+        elif self.env == SpannerEnv.MOCK:
+            return "mock"
+        else:
+            raise ValueError("Unknown Spanner environment")
 
 class SpannerQueryResult(NamedTuple):
     # A dict where each key is a field name returned in the query and the list

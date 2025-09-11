@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from IPython.core.interactiveshell import InteractiveShell
 from spanner_graphs.graph_server import GraphServer
 from spanner_graphs.magics import NetworkVisualizationMagics, load_ipython_extension
+from spanner_graphs.database import DatabaseSelector
 
 class TestNetworkVisualizationMagics(unittest.TestCase):
     def setUp(self):
@@ -11,6 +12,7 @@ class TestNetworkVisualizationMagics(unittest.TestCase):
 
         # Initialize our magic class
         self.magics = NetworkVisualizationMagics(self.ip)
+        self.magics.selector = None # Initialize selector
 
     @classmethod
     def tearDownClass(cls):
@@ -34,38 +36,55 @@ class TestNetworkVisualizationMagics(unittest.TestCase):
         self.ip.register_magics.assert_called_once_with(NetworkVisualizationMagics)
 
     @patch('spanner_graphs.magics.get_database_instance')
-    @patch('spanner_graphs.magics.GraphServer')
-    @patch('spanner_graphs.magics.display')
-    def test_spanner_graph_magic_with_valid_args(self, mock_display, mock_server, mock_db):
-        """Test the %%spanner_graph magic with valid arguments"""
+    @patch('spanner_graphs.magics.generate_visualization_html')
+    def test_spanner_graph_magic_with_cloud_args(self, mock_generate_html, mock_db):
+        """Test the %%spanner_graph magic with valid cloud arguments"""
         # Setup mock database
         mock_db.return_value = MagicMock()
-
-        # Setup mock server
-        mock_server.port = 8080
+        mock_generate_html.return_value = "<html></html>"
 
         # Test line with valid arguments
         line = "--project test_project --instance test_instance --database test_db"
         cell = "SELECT * FROM test_table"
 
         # Execute the magic
-        result = self.magics.spanner_graph(line, cell)
+        self.magics.spanner_graph(line, cell)
 
         # Verify database was initialized with correct parameters
-        mock_db.assert_called_once_with(
-            "test_project",
-            "test_instance",
-            "test_db",
-            mock=False
-        )
+        expected_selector = DatabaseSelector.cloud("test_project", "test_instance", "test_db")
+        mock_db.assert_called_once_with(expected_selector)
+        self.assertEqual(self.magics.selector, expected_selector)
 
         # Verify display was called (exact HTML content verification would be complex)
-        mock_display.assert_called_once()
+        mock_generate_html.assert_called_once()
+
+    @patch('spanner_graphs.magics.get_database_instance')
+    @patch('spanner_graphs.magics.generate_visualization_html')
+    def test_spanner_graph_magic_with_mock_args(self, mock_generate_html, mock_db):
+        """Test the %%spanner_graph magic with mock arguments"""
+        # Setup mock database
+        mock_db.return_value = MagicMock()
+        mock_generate_html.return_value = "<html></html>"
+
+        # Test line with valid arguments
+        line = "--mock"
+        cell = "SELECT * FROM test_table"
+
+        # Execute the magic
+        self.magics.spanner_graph(line, cell)
+
+        # Verify database was initialized with correct parameters
+        expected_selector = DatabaseSelector.mock()
+        mock_db.assert_called_once_with(expected_selector)
+        self.assertEqual(self.magics.selector, expected_selector)
+
+        # Verify display was called (exact HTML content verification would be complex)
+        mock_generate_html.assert_called_once()
 
     def test_spanner_graph_magic_with_invalid_args(self):
         """Test the %%spanner_graph magic with invalid arguments"""
-        # Test with missing required arguments
-        line = "--project test_project"  # Missing instance and database
+        # Test with missing required arguments for cloud
+        line = "--project test_project --database test_db"  # Missing instance
         cell = "SELECT * FROM test_table"
 
         # Execute the magic and capture output
@@ -74,8 +93,7 @@ class TestNetworkVisualizationMagics(unittest.TestCase):
 
             # Verify error message was printed
             mock_print.assert_any_call(
-                "Error: Please provide `--project`, `--instance`, "
-                "and `--database` values for your query."
+                "Error: Please provide `--project` and `--instance` for Cloud Spanner."
             )
 
     def test_spanner_graph_magic_with_empty_cell(self):

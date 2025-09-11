@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from IPython.core.interactiveshell import InteractiveShell
 from spanner_graphs.graph_server import GraphServer
 from spanner_graphs.magics import NetworkVisualizationMagics, load_ipython_extension
+from spanner_graphs.database import DatabaseSelector
 
 class TestSampleNotebook(unittest.TestCase):
     def setUp(self):
@@ -12,6 +13,7 @@ class TestSampleNotebook(unittest.TestCase):
 
         # Initialize our magic class
         self.magics = NetworkVisualizationMagics(self.ip)
+        self.magics.selector = None
 
         # Load the notebook content
         with open('sample.ipynb', 'r') as f:
@@ -59,29 +61,24 @@ class TestSampleNotebook(unittest.TestCase):
 
         # Test the mock visualization with mocked dependencies
         with patch('spanner_graphs.magics.get_database_instance') as mock_db, \
-             patch('spanner_graphs.magics.GraphServer') as mock_server, \
-             patch('spanner_graphs.magics.display') as mock_display:
+             patch('spanner_graphs.magics.generate_visualization_html') as mock_generate_html:
 
             mock_db.return_value = MagicMock()
-            mock_server.port = 8080
+            mock_generate_html.return_value = "<html></html>"
 
             # Test with a valid query since empty cell is handled by IPython
             line = '--mock'
             cell = 'GRAPH FinGraph\nMATCH p = (a)-[e]->(b)\nRETURN TO_JSON(p) AS path\nLIMIT 100'
 
             # Execute the magic with a valid query
-            result = self.magics.spanner_graph(line, cell)
+            self.magics.spanner_graph(line, cell)
 
             # Verify database was initialized with mock=True
-            mock_db.assert_called_once_with(
-                None,  # project
-                None,  # instance
-                None,  # database
-                mock=True
-            )
+            expected_selector = DatabaseSelector.mock()
+            mock_db.assert_called_once_with(expected_selector)
 
             # Verify display was called
-            mock_display.assert_called_once()
+            mock_generate_html.assert_called_once()
 
         # Fourth cell should be the Spanner Graph query
         query_cell = self.code_cells[3]
@@ -97,29 +94,28 @@ class TestSampleNotebook(unittest.TestCase):
 
         # Test the query with mocked dependencies
         with patch('spanner_graphs.magics.get_database_instance') as mock_db, \
-             patch('spanner_graphs.magics.GraphServer') as mock_server, \
-             patch('spanner_graphs.magics.display') as mock_display:
+             patch('spanner_graphs.magics.generate_visualization_html') as mock_generate_html:
 
             mock_db.return_value = MagicMock()
-            mock_server.port = 8080
+            mock_generate_html.return_value = "<html></html>"
 
             # Extract the actual line and cell content from the notebook
             line = next(line for line in query_cell['source'] if line.startswith('%%spanner_graph')).replace('%%spanner_graph ', '')
             cell = ''.join(line for line in query_cell['source'] if not line.startswith('%%spanner_graph'))
 
             # Execute the magic with the actual notebook content
-            result = self.magics.spanner_graph(line, cell)
+            self.magics.spanner_graph(line, cell)
 
             # Verify database was initialized with placeholder values
-            mock_db.assert_called_once_with(
+            expected_selector = DatabaseSelector.cloud(
                 "{project_id}",
                 "{instance_name}",
-                "{database_name}",
-                mock=False
+                "{database_name}"
             )
+            mock_db.assert_called_once_with(expected_selector)
 
             # Verify display was called
-            mock_display.assert_called_once()
+            mock_generate_html.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
