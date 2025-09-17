@@ -34,6 +34,16 @@ jobs:
           python -m venv venv
           . venv/bin/activate
           pip install pytest
+
+          # --- Start of fix ---
+          # The version "v1.1.8" in setup.py is not PEP 440 compliant and causes
+          # pip's resolver to ignore the local wheel. We remove the "v" before building.
+          echo "Original version:"
+          grep "version=" setup.py
+          sed -i 's/version="v/version="/' setup.py
+          echo "Fixed version:"
+          grep "version=" setup.py
+          # --- End of fix ---
       
           # We don't install the wheel directly. Instead, we'll tell pip to look
           # in the 'dist' directory when it resolves dependencies.
