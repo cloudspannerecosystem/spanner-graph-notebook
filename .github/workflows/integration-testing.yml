@@ -34,16 +34,10 @@ jobs:
           echo "--- Preparing Environment ---"
           python -m venv venv
           . venv/bin/activate
-          pip install pytest build
+          pip install pytest
       
-          echo "--- Building Wheel ---"
-          python -m build
-      
-          echo "--- Checking out python-bigquery-magics ---"
-          git clone https://github.com/googleapis/python-bigquery-magics.git
-          
-          echo "--- Installing Dependencies ---"
-          # Using the two-step install that you confirmed you used last
+          echo "--- Installing Dependencies from Local Builds ---"
+          # Using the two-step install process
           pip install dist/*.whl
           pip install ./python-bigquery-magics
           pip install google-cloud-testutils
