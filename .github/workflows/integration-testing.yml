@@ -27,29 +27,32 @@ jobs:
         with:
           repository: googleapis/python-bigquery-magics
           path: python-bigquery-magics
-
+      
       - name: Install and test
         run: |
           set -e
           python -m venv venv
           . venv/bin/activate
           pip install pytest
-          
-          # Install the local build (from your PR) into the venv
-          pip install dist/*.whl
-          
-          # Remove the source directory to prevent sys.path conflicts.
-          # The tests will use the package just installed from the wheel.
-          rm -rf spanner_graph_notebook
-          
-          # Install bigquery-magics with the correct extras
-          # to run all graph and storage-related tests.
-          pip install ./python-bigquery-magics
-
+      
+          # We don't install the wheel directly. Instead, we'll tell pip to look
+          # in the 'dist' directory when it resolves dependencies.
+      
+          # Install bigquery-magics and its extras.
+          # The --find-links flag tells pip to look in the local dist/ directory
+          # for packages before going to PyPI. This will make it pick up
+          # the locally built wheel to satisfy the 'spanner-graph-notebook' dependency.
+          pip install --find-links=dist ./python-bigquery-magics[spanner-graph-notebook]
+      
+          # The comment in the original file about removing the source directory to
+          # prevent path conflicts was a good idea, but the command was incorrect.
+          # This removes the 'spanner_graphs' source package directory.
+          rm -rf spanner_graphs
+      
           pip install google-cloud-testutils
-          
+      
           # Change directory into the bigquery-magics checkout
           cd python-bigquery-magics
-          
+      
           # Run the tests from within its own directory
-          pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
+          pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py  
