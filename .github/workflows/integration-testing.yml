@@ -28,27 +28,48 @@ jobs:
           repository: googleapis/python-bigquery-magics
           path: python-bigquery-magics
 
-      - name: Install and test
+      - name: Diagnose Test Environment
         run: |
           set -e
+          echo "--- Preparing Environment ---"
           python -m venv venv
           . venv/bin/activate
-          pip install pytest
+          pip install pytest build
       
-          # Install spanner-graph-notebook in "editable" mode from its source directory.
-          # This makes the source code directly importable by other packages in the same
-          # environment, which is the standard way to handle local dependencies in CI.
-          # This will also install all of its dependencies like 'portpicker'.
-          pip install -e .
+          echo "--- Building Wheel ---"
+          python -m build
       
-          # Now, install python-bigquery-magics. Since spanner-graph-notebook is already
-          # available in the environment, pip will not try to download it again.
+          echo "--- Checking out python-bigquery-magics ---"
+          git clone https://github.com/googleapis/python-bigquery-magics.git
+          
+          echo "--- Installing Dependencies ---"
+          # Using the two-step install that you confirmed you used last
+          pip install dist/*.whl
           pip install ./python-bigquery-magics
-      
           pip install google-cloud-testutils
       
-          # Change directory into the bigquery-magics checkout to run its tests.
-          cd python-bigquery-magics
+          # --- DIAGNOSTICS START ---
+          echo "--- DIAGNOSTICS ---"
       
-          # Run the tests. They should now be able to import spanner_graphs correctly.
+          echo "[Step 1] Checking executable paths..."
+          which python
+          which pip
+      
+          echo "\n[Step 2] Listing all installed packages..."
+          pip freeze
+      
+          echo "\n[Step 3] Checking content of site-packages..."
+          ls -lR venv/lib/python3.11/site-packages/ | grep "spanner" || echo "spanner-graph-notebook not found in site-packages"
+      
+          echo "\n[Step 4] Checking Python's import path..."
+          python -c "import sys; from pprint import pprint; pprint(sys.path)"
+      
+          echo "\n[Step 5] Attempting a direct import..."
+          python -c "from spanner_graphs import graph_visualization" && echo "==> Direct import of graph_visualization SUCCEEDED" || echo "==> Direct import of graph_visualization FAILED"
+          python -c "import spanner_graphs" && echo "==> Direct import of spanner_graphs SUCCEEDED" || echo "==> Direct import of spanner_graphs FAILED"
+      
+          # --- DIAGNOSTICS END ---
+      
+          echo "\n--- Running Tests ---"
+          cd python-bigquery-magics
           pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
