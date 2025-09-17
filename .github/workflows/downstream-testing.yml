@@ -27,7 +27,6 @@ jobs:
         with:
           repository: googleapis/python-bigquery-magics
           path: python-bigquery-magics
-          ref: f9a75952ce852db359e63c27b729303878741ba0
 
       - name: Install and test
         run: |
@@ -37,6 +36,10 @@ jobs:
           pip install pytest
           # The exact filename is unknown, so we use a glob.
           pip install dist/*.whl
-          pip install ./python-bigquery-magics[spanner-graph-notebook]
+          # Install bigquery-magics from the local checkout.
+          # pip will use the already-installed spanner-graph-notebook package.
+          pip install ./python-bigquery-magics
+          # The spanner-graph-notebook extra also includes 'portpicker', so install that separately.
+          pip install portpicker
           # Run the tests
           pytest python-bigquery-magics/tests/unit/test_graph_server.py python-bigquery-magics/tests/unit/bigquery/test_bigquery.py
