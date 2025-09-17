@@ -27,7 +27,7 @@ jobs:
         with:
           repository: googleapis/python-bigquery-magics
           path: python-bigquery-magics
-      
+
       - name: Install and test
         run: |
           set -e
@@ -35,22 +35,20 @@ jobs:
           . venv/bin/activate
           pip install pytest
       
-          # Step 1: Explicitly install the spanner-graph-notebook wheel from the 'dist' directory.
-          # This is the most direct way to ensure the local version from your PR is used.
-          pip install dist/*.whl
+          # Install spanner-graph-notebook in "editable" mode from its source directory.
+          # This makes the source code directly importable by other packages in the same
+          # environment, which is the standard way to handle local dependencies in CI.
+          # This will also install all of its dependencies like 'portpicker'.
+          pip install -e .
       
-          # Step 2: Install python-bigquery-magics from its local directory.
-          # We DO NOT use the [spanner-graph-notebook] extra because the dependency has already
-          # been satisfied in the previous step.
+          # Now, install python-bigquery-magics. Since spanner-graph-notebook is already
+          # available in the environment, pip will not try to download it again.
           pip install ./python-bigquery-magics
-      
-          # Clean up the source directory to prevent potential import path conflicts during testing.
-          rm -rf spanner_graphs
       
           pip install google-cloud-testutils
       
           # Change directory into the bigquery-magics checkout to run its tests.
           cd python-bigquery-magics
       
-          # Run the tests. They should now find the correct spanner-graph-notebook package.
+          # Run the tests. They should now be able to import spanner_graphs correctly.
           pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
