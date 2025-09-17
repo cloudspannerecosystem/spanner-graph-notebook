@@ -44,7 +44,7 @@ jobs:
           
           # Install bigquery-magics with the correct extras
           # to run all graph and storage-related tests.
-          pip install ./python-bigquery-magics[spanner-graph-notebook]
+          pip install ./python-bigquery-magics
 
           pip install google-cloud-testutils
           
