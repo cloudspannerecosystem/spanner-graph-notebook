@@ -45,9 +45,11 @@ jobs:
           # Install bigquery-magics with the correct extras
           # to run all graph and storage-related tests.
           pip install ./python-bigquery-magics[spanner-graph-notebook]
+
+          pip install google-cloud-testutils
           
           # Change directory into the bigquery-magics checkout
           cd python-bigquery-magics
           
           # Run the tests from within its own directory
-          pytest tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
+          pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
