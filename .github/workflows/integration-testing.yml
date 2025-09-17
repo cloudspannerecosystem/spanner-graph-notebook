@@ -34,35 +34,23 @@ jobs:
           python -m venv venv
           . venv/bin/activate
           pip install pytest
-
-          # --- Start of fix ---
-          # The version "v1.1.8" in setup.py is not PEP 440 compliant and causes
-          # pip's resolver to ignore the local wheel. We remove the "v" before building.
-          echo "Original version:"
-          grep "version=" setup.py
-          sed -i 's/version="v/version="/' setup.py
-          echo "Fixed version:"
-          grep "version=" setup.py
-          # --- End of fix ---
       
-          # We don't install the wheel directly. Instead, we'll tell pip to look
-          # in the 'dist' directory when it resolves dependencies.
+          # Step 1: Explicitly install the spanner-graph-notebook wheel from the 'dist' directory.
+          # This is the most direct way to ensure the local version from your PR is used.
+          pip install dist/*.whl
       
-          # Install bigquery-magics and its extras.
-          # The --find-links flag tells pip to look in the local dist/ directory
-          # for packages before going to PyPI. This will make it pick up
-          # the locally built wheel to satisfy the 'spanner-graph-notebook' dependency.
-          pip install --find-links=dist ./python-bigquery-magics[spanner-graph-notebook]
+          # Step 2: Install python-bigquery-magics from its local directory.
+          # We DO NOT use the [spanner-graph-notebook] extra because the dependency has already
+          # been satisfied in the previous step.
+          pip install ./python-bigquery-magics
       
-          # The comment in the original file about removing the source directory to
-          # prevent path conflicts was a good idea, but the command was incorrect.
-          # This removes the 'spanner_graphs' source package directory.
+          # Clean up the source directory to prevent potential import path conflicts during testing.
           rm -rf spanner_graphs
       
           pip install google-cloud-testutils
       
-          # Change directory into the bigquery-magics checkout
+          # Change directory into the bigquery-magics checkout to run its tests.
           cd python-bigquery-magics
       
-          # Run the tests from within its own directory
-          pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py  
+          # Run the tests. They should now find the correct spanner-graph-notebook package.
+          pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
