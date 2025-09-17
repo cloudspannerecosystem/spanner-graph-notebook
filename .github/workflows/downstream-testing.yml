@@ -1,0 +1,42 @@
+name: Downstream Testing
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-bigquery-magics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spanner-graph-notebook
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build dependencies
+        run: python -m pip install build
+
+      - name: Build spanner-graph-notebook
+        run: python -m build
+
+      - name: Checkout python-bigquery-magics
+        uses: actions/checkout@v4
+        with:
+          repository: googleapis/python-bigquery-magics
+          path: python-bigquery-magics
+          ref: f9a75952ce852db359e63c27b729303878741ba0
+
+      - name: Install and test
+        run: |
+          set -e
+          python -m venv venv
+          . venv/bin/activate
+          pip install pytest
+          # The exact filename is unknown, so we use a glob.
+          pip install dist/*.whl
+          pip install ./python-bigquery-magics[spanner-graph-notebook]
+          # Run the tests
+          pytest python-bigquery-magics/tests/unit/test_graph_server.py python-bigquery-magics/tests/unit/bigquery/test_bigquery.py
