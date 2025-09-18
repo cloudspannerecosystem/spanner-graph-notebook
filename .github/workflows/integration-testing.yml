@@ -8,7 +8,8 @@ jobs:
   test-bigquery-magics:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout spanner-graph-notebook
+      # Step 1: Checkout local PR of spanner-graph-notebook
+      - name: Checkout spanner-graph-notebook (Repo A)
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -16,54 +17,36 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install build dependencies
-        run: python -m pip install build
-
-      - name: Build spanner-graph-notebook
-        run: python -m build
-
-      - name: Checkout python-bigquery-magics
+      # Step 2: Checkout python-bigquery-magics
+      - name: Checkout python-bigquery-magics (Repo B)
         uses: actions/checkout@v4
         with:
           repository: googleapis/python-bigquery-magics
           path: python-bigquery-magics
 
-      - name: Diagnose Test Environment
+      - name: Install and test
         run: |
           set -e
-          echo "--- Preparing Environment ---"
           python -m venv venv
           . venv/bin/activate
-          pip install pytest
-      
-          echo "--- Installing Dependencies from Local Builds ---"
-          # Using the two-step install process
-          pip install dist/*.whl
-          pip install ./python-bigquery-magics
-          pip install google-cloud-testutils
-      
-          # --- DIAGNOSTICS START ---
-          echo "--- DIAGNOSTICS ---"
-      
-          echo "[Step 1] Checking executable paths..."
-          which python
-          which pip
-      
-          echo "\n[Step 2] Listing all installed packages..."
-          pip freeze
-      
-          echo "\n[Step 3] Checking content of site-packages..."
-          ls -lR venv/lib/python3.11/site-packages/ | grep "spanner" || echo "spanner-graph-notebook not found in site-packages"
-      
-          echo "\n[Step 4] Checking Python's import path..."
-          python -c "import sys; from pprint import pprint; pprint(sys.path)"
-      
-          echo "\n[Step 5] Attempting a direct import..."
-          python -c "from spanner_graphs import graph_visualization" && echo "==> Direct import of graph_visualization SUCCEEDED" || echo "==> Direct import of graph_visualization FAILED"
-          python -c "import spanner_graphs" && echo "==> Direct import of spanner_graphs SUCCEEDED" || echo "==> Direct import of spanner_graphs FAILED"
-      
-          # --- DIAGNOSTICS END ---
-      
-          echo "\n--- Running Tests ---"
-          cd python-bigquery-magics
-          pytest -v tests/unit/test_graph_server.py tests/unit/bigquery/test_bigquery.py
+          
+          # Steps 3, 4, 5: Install test dependencies (pytest, etc.)
+          # We also include portpicker, which was in your original file and is
+          # likely required by the tests.
+          pip install pytest google-cloud-testutils google-cloud-bigquery-storage portpicker
+          
+          # Step 1 (continued): Install spanner-graph-notebook in editable mode
+          # The '.' refers to the root directory, where Repo A was checked out.
+          pip install -e .
+          
+          # Step 2 (continued): Install python-bigquery-magics in editable mode
+          # This installs from the 'python-bigquery-magics' subdirectory.
+          # pip will see that spanner-graph-notebook is already installed.
+          pip install -e ./python-bigquery-magics
+          
+          # Prepend the required import to the test files
+          echo "import spanner_graphs.graph_visualization as graph_visualization" | cat - python-bigquery-magics/tests/unit/test_graph_server.py > temp && mv temp python-bigquery-magics/tests/unit/test_graph_server.py
+          echo "import spanner_graphs.graph_visualization as graph_visualization" | cat - python-bigquery-magics/tests/unit/bigquery/test_bigquery.py > temp && mv temp python-bigquery-magics/tests/unit/bigquery/test_bigquery.py
+          
+          # Step 6: Run the tests
+          pytest -v python-bigquery-magics/tests/unit/test_graph_server.py python-bigquery-magics/tests/unit/bigquery/test_bigquery.py
