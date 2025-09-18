@@ -24,6 +24,7 @@ import os
 import sys
 from threading import Thread
 import re
+from dataclasses import is_dataclass, asdict
 
 from IPython.core.display import HTML, JSON
 from IPython.core.magic import Magics, magics_class, cell_magic
@@ -33,6 +34,7 @@ import ipywidgets as widgets
 from ipywidgets import interact
 from jinja2 import Template
 
+from spanner_graphs.database import DatabaseSelector
 from spanner_graphs.exec_env import get_database_instance
 from spanner_graphs.graph_server import (
     GraphServer, execute_query, execute_node_expansion,
@@ -86,11 +88,13 @@ def is_colab() -> bool:
 
 def receive_query_request(query: str, params: str):
     params_dict = json.loads(params)
-    return JSON(execute_query(project=params_dict["project"],
-                              instance=params_dict["instance"],
-                              database=params_dict["database"],
-                              query=query,
-                              mock=params_dict["mock"]))
+    selector_dict = params_dict.get("selector")
+    if not selector_dict:
+        return JSON({"error": "Missing selector in params"})
+    try:
+        return JSON(execute_query(selector_dict=selector_dict, query=query))
+    except Exception as e:
+        return JSON({"error": str(e)})
 
 def receive_node_expansion_request(request: dict, params_str: str):
     """Handle node expansion requests in Google Colab environment
@@ -103,11 +107,8 @@ def receive_node_expansion_request(request: dict, params_str: str):
             - direction: str - Direction of expansion ("INCOMING" or "OUTGOING")
             - edge_label: Optional[str] - Label of edges to filter by
         params_str: A JSON string containing connection parameters:
-            - project: str - GCP project ID
-            - instance: str - Spanner instance ID
-            - database: str - Spanner database ID
+            - selector: Dict - The DatabaseSelector object as a dict
             - graph: str - Graph name
-            - mock: bool - Whether to use mock data
 
     Returns:
         JSON: A JSON-serialized response containing either:
@@ -115,9 +116,23 @@ def receive_node_expansion_request(request: dict, params_str: str):
             - An error message if the request failed
     """
     try:
-        return JSON(execute_node_expansion(params_str, request))
+        params_dict = json.loads(params_str)
+        selector_dict = params_dict.get("selector")
+        graph = params_dict.get("graph")
+        if not selector_dict:
+            return JSON({"error": "Missing selector in params"})
+
+        return JSON(execute_node_expansion(selector_dict=selector_dict, graph=graph, request=request))
     except BaseException as e:
-        return JSON({"error": e})
+        return JSON({"error": str(e)})
+
+def custom_json_serializer(o):
+    """A JSON serializer that handles dataclasses and enums."""
+    if is_dataclass(o):
+        return asdict(o)
+    if isinstance(o, Enum):
+        return f"{o.__class__.__name__}.{o.name}"
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
 
 @magics_class
 class NetworkVisualizationMagics(Magics):
@@ -129,6 +144,7 @@ class NetworkVisualizationMagics(Magics):
         self.limit = 5
         self.args = None
         self.cell = None
+        self.selector = None
 
         if is_colab():
             from google.colab import output
@@ -149,17 +165,18 @@ class NetworkVisualizationMagics(Magics):
             if match:
                 graph = match.group(1)
 
+        # Pack the selector and graph into the params to be sent to the GraphServer
+        params = {
+            "selector": self.selector,
+            "graph": graph
+        }
+
         # Generate the HTML content
         html_content = generate_visualization_html(
             query=self.cell,
             port=GraphServer.port,
-            params=json.dumps({
-                "project": self.args.project,
-                "instance": self.args.instance,
-                "database": self.args.database,
-                "mock": self.args.mock,
-                "graph": graph
-            }))
+            params=json.dumps(params, default=custom_json_serializer))
+
         display(HTML(html_content))
 
     @cell_magic
@@ -177,34 +194,39 @@ class NetworkVisualizationMagics(Magics):
         parser.add_argument("--mock",
                             action="store_true",
                             help="Use mock database")
+        parser.add_argument("--infra_db_path",
+                            action="store_true",
+                            help="Connect to internal Infra Spanner")
 
         try:
             args = parser.parse_args(line.split())
-            if not args.mock:
-                if not (args.project and args.instance and args.database):
+            selector = None
+            if args.mock:
+                selector = DatabaseSelector.mock()
+            elif args.infra_db_path:
+                selector = DatabaseSelector.infra(infra_db_path=args.database)
+            else:
+                if not (args.project and args.instance):
                     raise ValueError(
-                        "Please provide `--project`, `--instance`, "
-                        "and `--database` values for your query.")
-                if not cell or not cell.strip():
-                    print("Error: Query is required.")
-                    return
+                        "Please provide `--project` and `--instance` for Cloud Spanner."
+                    )
+                selector = DatabaseSelector.cloud(args.project, args.instance, args.database)
 
-            self.args = parser.parse_args(line.split())
+            if not args.mock and (not cell or not cell.strip()):
+                print("Error: Query is required.")
+                return
+
+            self.args = args
             self.cell = cell
-            self.database = get_database_instance(
-                self.args.project,
-                self.args.instance,
-                self.args.database,
-                mock=self.args.mock)
+            self.selector = selector
+            self.database = get_database_instance(self.selector)
             clear_output(wait=True)
             self.visualize()
         except BaseException as e:
             print(f"Error: {e}")
-            print("Usage: %%spanner_graph --project PROJECT_ID "
-                  "--instance INSTANCE_ID --database DATABASE_ID "
-                  "[--mock] ")
+            print("       %%spanner_graph --project <proj> --instance <inst> --database <db>")
+            print("       %%spanner_graph --mock")
             print("       Graph query here...")
-
 
 def load_ipython_extension(ipython):
     """Registration function"""

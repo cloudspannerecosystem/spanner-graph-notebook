@@ -16,26 +16,73 @@
 """
 This module maintains state for the execution environment of a session
 """
-from typing import Dict, Union
 
-from spanner_graphs.database import SpannerDatabase, MockSpannerDatabase
-from spanner_graphs.cloud_database import CloudSpannerDatabase
+import importlib
+from typing import Dict, Union
+from spanner_graphs.database import (
+    SpannerDatabase,
+    MockSpannerDatabase,
+    DatabaseSelector,
+    SpannerEnv,
+)
 
 # Global dict of database instances created in a single session
 database_instances: Dict[str, Union[SpannerDatabase, MockSpannerDatabase]] = {}
 
-def get_database_instance(project: str, instance: str, database: str, mock = False):
-    if mock:
+def get_database_instance(
+    selector: DatabaseSelector,
+) -> Union[SpannerDatabase, MockSpannerDatabase]:
+    """Gets a cached or new database instance based on the selector.
+
+    Args:
+        selector: A `DatabaseSelector` object that specifies which database to
+            connect to.
+
+    Returns:
+        An initialized `SpannerDatabase` or `MockSpannerDatabase` instance.
+        A CloudSpannerDatabase will only be available in public environments.
+        An InfraSpannerDatabase will only be available in internal environments.
+
+    Raises:
+        RuntimeError: If the required Spanner client library (for Cloud or Infra)
+            is not installed in the environment.
+        ValueError: If the selector specifies an unknown or unsupported
+            environment.
+    """
+    if selector.env == SpannerEnv.MOCK:
         return MockSpannerDatabase()
 
-    key = f"{project}_{instance}_{database}"
+    key = selector.get_key()
     db = database_instances.get(key)
+    if db:
+        return db
 
-    # Currently, we only create and return CloudSpannerDatabase instances. In the future, different
-    # implementations could be introduced.
-    if not db:
-        db = CloudSpannerDatabase(project, instance, database)
-        database_instances[key] = db
+    elif selector.env == SpannerEnv.CLOUD:
+        try:
+            cloud_db_module = importlib.import_module(
+                "spanner_graphs.cloud_database"
+            )
+            CloudSpannerDatabase = getattr(cloud_db_module, "CloudSpannerDatabase")
+            db = CloudSpannerDatabase(
+                selector.project, selector.instance, selector.database
+            )
+        except ImportError:
+            raise RuntimeError(
+                "Cloud Spanner support is not available in this environment."
+            )
+    elif selector.env == SpannerEnv.INFRA:
+        try:
+            infra_db_module = importlib.import_module(
+                "spanner_graphs.infra_database"
+            )
+            InfraSpannerDatabase = getattr(infra_db_module, "InfraSpannerDatabase")
+            db = InfraSpannerDatabase(selector.infra_db_path)
+        except ImportError:
+            raise RuntimeError(
+                "Infra Spanner support is not available in this environment."
+            )
+    else:
+        raise ValueError(f"Unsupported Spanner environment: {selector.env}")
 
+    database_instances[key] = db
     return db
-

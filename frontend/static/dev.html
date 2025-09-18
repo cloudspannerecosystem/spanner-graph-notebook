@@ -484,11 +484,20 @@ LIMIT 50"></textarea>
                 window.app.tearDown();
             }
 
+            let selector;
+            if (mock) {
+                selector = { env: 'SpannerEnv.MOCK' };
+            } else {
+                selector = {
+                    env: 'SpannerEnv.CLOUD',
+                    project: project,
+                    instance: instance,
+                    database: database
+                };
+            }
+
             const params = {
-                'project': project,
-                'instance': instance,
-                'database': database,
-                'mock': mock,
+                'selector': selector,
                 'graph': graph
             };
 

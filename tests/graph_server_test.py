@@ -6,6 +6,7 @@ from spanner_graphs.graph_server import (
     is_valid_property_type,
     execute_node_expansion,
 )
+from spanner_graphs.database import SpannerEnv
 
 class TestPropertyTypeHandling(unittest.TestCase):
     def test_validate_property_type_valid_types(self):
@@ -75,12 +76,14 @@ class TestPropertyTypeHandling(unittest.TestCase):
             ("ENUM", "ENUM_VALUE", "'''ENUM_VALUE'''"),
         ]
 
-        params = json.dumps({
+        selector_dict = {
+            "env": str(SpannerEnv.CLOUD),
             "project": "test-project",
             "instance": "test-instance",
             "database": "test-database",
-            "graph": "test-graph",
-        })
+            "infra_db_path": None
+        }
+        graph = "test-graph"
 
         for type_str, value, expected_format in test_cases:
             with self.subTest(type=type_str, value=value):
@@ -95,13 +98,14 @@ class TestPropertyTypeHandling(unittest.TestCase):
                 }
 
                 execute_node_expansion(
-                    params_str=params,
+                    selector_dict=selector_dict,
+                    graph=graph,
                     request=request
                 )
 
                 # Extract the actual formatted value from the query
                 last_call = mock_execute_query.call_args[0]  # Get the positional args
-                query = last_call[3]  # The query is the 4th positional arg
+                query = last_call[1]  # The query is the 2nd positional arg
 
                 # Find the WHERE clause in the query and extract the value
                 where_line = [line for line in query.split('\n') if 'WHERE' in line][0]
@@ -117,12 +121,14 @@ class TestPropertyTypeHandling(unittest.TestCase):
         # Create a property dictionary with string type (since null type is not allowed)
         prop_dict = {"key": "test_property", "value": "test_value", "type": "STRING"}
 
-        params = json.dumps({
+        selector_dict = {
+            "env": str(SpannerEnv.CLOUD),
             "project": "test-project",
             "instance": "test-instance",
             "database": "test-database",
-            "graph": "test-graph",
-        })
+            "infra_db_path": None
+        }
+        graph = "test-graph"
 
         request = {
             "uid": "test-uid",
@@ -132,13 +138,14 @@ class TestPropertyTypeHandling(unittest.TestCase):
         }
 
         execute_node_expansion(
-            params_str=params,
+            selector_dict=selector_dict,
+            graph=graph,
             request=request
         )
 
         # Extract the actual formatted value from the query
-        last_call = mock_execute_query.call_args[0]
-        query = last_call[3]
+        last_call = mock_execute_query.call_args[0]  # Get the positional args
+        query = last_call[1]  # The query is the 2nd positional arg
         where_line = [line for line in query.split('\n') if 'WHERE' in line][0]
         expected_pattern = "n.test_property='''test_value'''"
         self.assertIn(expected_pattern, where_line,

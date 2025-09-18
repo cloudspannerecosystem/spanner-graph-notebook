@@ -25,7 +25,7 @@ import atexit
 
 from spanner_graphs.conversion import get_nodes_edges
 from spanner_graphs.exec_env import get_database_instance
-from spanner_graphs.database import SpannerQueryResult
+from spanner_graphs.database import DatabaseSelector, SpannerQueryResult, SpannerEnv
 
 # Supported types for a property
 PROPERTY_TYPE_SET = {
@@ -51,6 +51,24 @@ class NodePropertyForDataExploration:
 class EdgeDirection(Enum):
     INCOMING = "INCOMING"
     OUTGOING = "OUTGOING"
+
+
+def dict_to_selector(selector_dict: Dict[str, Any]) -> DatabaseSelector:
+    """
+    Picks the correct DB selector based on the environment the server is running in.
+    """
+    try:
+        env = SpannerEnv[selector_dict['env'].split('.')[-1]]
+        if env == SpannerEnv.CLOUD:
+            return DatabaseSelector.cloud(selector_dict['project'], selector_dict['instance'], selector_dict['database'])
+        elif env == SpannerEnv.INFRA:
+            return DatabaseSelector.infra(selector_dict['infra_db_path'])
+        elif env == SpannerEnv.MOCK:
+            return DatabaseSelector.mock()
+        raise ValueError(f"Invalid env in selector dict: {selector_dict}")
+    except Exception as e:
+        print (f"Unexpected error when fetching selector: {e}")
+
 
 def is_valid_property_type(property_type: str) -> bool:
     """
@@ -79,7 +97,7 @@ def is_valid_property_type(property_type: str) -> bool:
     return True
 
 def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploration], EdgeDirection):
-    required_fields = ["project", "instance", "database", "graph", "uid", "node_labels", "direction"]
+    required_fields = ["uid", "node_labels", "direction"]
     missing_fields = [field for field in required_fields if data.get(field) is None]
 
     if missing_fields:
@@ -146,7 +164,8 @@ def validate_node_expansion_request(data) -> (list[NodePropertyForDataExploratio
     return validated_properties, direction
 
 def execute_node_expansion(
-    params_str: str,
+    selector_dict: Dict[str, Any],
+    graph: str,
     request: dict) -> dict:
     """Execute a node expansion query to find connected nodes and edges.
 
@@ -158,13 +177,8 @@ def execute_node_expansion(
         dict: A dictionary containing the query response with nodes and edges.
     """
 
-    params = json.loads(params_str)
-    node_properties, direction = validate_node_expansion_request(params | request)
+    node_properties, direction = validate_node_expansion_request(request)
 
-    project = params.get("project")
-    instance = params.get("instance")
-    database = params.get("database")
-    graph = params.get("graph")
     uid = request.get("uid")
     node_labels = request.get("node_labels")
     edge_label = request.get("edge_label")
@@ -204,14 +218,11 @@ def execute_node_expansion(
         RETURN TO_JSON(e) as e, TO_JSON(d) as d
         """
 
-    return execute_query(project, instance, database, query, mock=False)
+    return execute_query(selector_dict, query)
 
 def execute_query(
-    project: str,
-    instance: str,
-    database: str,
+    selector_dict: Dict[str, Any],
     query: str,
-    mock: bool = False,
 ) -> Dict[str, Any]:
     """Executes a query against a database and formats the result.
 
@@ -220,19 +231,14 @@ def execute_query(
     If the query fails, it returns a detailed error message, optionally
     including the database schema to aid in debugging.
 
-    Args:
-        project: The cloud project ID.
-        instance: The database instance name.
-        database: The database name.
-        query: The query string to execute.
-        mock: If True, use a mock database instance for testing. Defaults to False.
-
     Returns:
         A dictionary containing either the structured 'response' with nodes,
         edges, and other data, or an 'error' key with a descriptive message.
     """
     try:
-        db_instance = get_database_instance(project, instance, database, mock)
+        selector = dict_to_selector(selector_dict)
+        db_instance = get_database_instance(selector)
+
         result: SpannerQueryResult = db_instance.execute_query(query)
 
         if len(result.rows) == 0 and result.err:
@@ -382,32 +388,25 @@ class GraphServerHandler(http.server.SimpleHTTPRequestHandler):
         data = self.parse_post_data()
         params = json.loads(data["params"])
         response = execute_query(
-            project=params["project"],
-            instance=params["instance"],
-            database=params["database"],
-            query=data["query"],
-            mock=params["mock"]
+            selector_dict=params["selector"],
+            query=data["query"]
         )
         self.do_data_response(response)
 
     def handle_post_node_expansion(self):
-        """Handle POST requests for node expansion.
-
-        Expects a JSON payload with:
-        - params: A JSON string containing connection parameters (project, instance, database, graph)
-        - request: A dictionary with node details (uid, node_labels, node_properties, direction, edge_label)
-        """
         try:
             data = self.parse_post_data()
+            params = json.loads(data.get("params"))
+            selector_dict = params["selector"]
+            graph = params.get("graph")
+            request_data = data.get("request")
 
-            # Execute node expansion with:
-            # - params_str: JSON string with connection parameters (project, instance, database, graph)
-            # - request: Dict with node details (uid, node_labels, node_properties, direction, edge_label)
             self.do_data_response(execute_node_expansion(
-                params_str=data.get("params"),
-                request=data.get("request")
+                selector_dict=selector_dict,
+                graph=graph,
+                request=request_data
             ))
-        except BaseException as e:
+        except Exception as e:
             self.do_error_response(e)
             return
 
