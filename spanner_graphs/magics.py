@@ -224,7 +224,6 @@ class NetworkVisualizationMagics(Magics):
             self.visualize()
         except BaseException as e:
             print(f"Error: {e}")
-            print("Usage: %%spanner_graph --infra_db_path <db_path>")
             print("       %%spanner_graph --project <proj> --instance <inst> --database <db>")
             print("       %%spanner_graph --mock")
             print("       Graph query here...")

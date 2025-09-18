@@ -179,7 +179,6 @@ def execute_node_expansion(
 
     node_properties, direction = validate_node_expansion_request(request)
 
-    selector = dict_to_selector(selector_dict)
     uid = request.get("uid")
     node_labels = request.get("node_labels")
     edge_label = request.get("edge_label")
