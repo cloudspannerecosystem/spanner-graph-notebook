@@ -24,6 +24,7 @@ from google.cloud import spanner
 from google.cloud.spanner_v1 import JsonObject
 from google.api_core.client_options import ClientOptions
 from google.cloud.spanner_v1.types import StructType, Type, TypeCode
+import logging
 import pydata_google_auth
 
 from spanner_graphs.database import SpannerDatabase, MockSpannerDatabase, SpannerQueryResult, SpannerFieldInfo
@@ -44,7 +45,9 @@ class CloudSpannerDatabase(SpannerDatabase):
         self.client = spanner.Client(
             project=project_id, credentials=credentials, client_options=ClientOptions(quota_project_id=project_id))
         self.instance = self.client.instance(instance_id)
-        self.database = self.instance.database(database_id)
+        logger = logging.getLogger("spanner_graphs")
+        logger.setLevel(logging.CRITICAL)
+        self.database = self.instance.database(database_id, logger=logger)
         self.schema_json: Any | None = None
 
     def __repr__(self) -> str:
