@@ -39,11 +39,29 @@ def get_as_field_info_list(fields: List[StructType.Field]) -> List[SpannerFieldI
 
 class CloudSpannerDatabase(SpannerDatabase):
     """Concrete implementation for Spanner database on the cloud."""
-    def __init__(self, project_id: str, instance_id: str,
-                 database_id: str) -> None:
-        credentials, _ = _get_default_credentials_with_project()
-        self.client = spanner.Client(
-            project=project_id, credentials=credentials, client_options=ClientOptions(quota_project_id=project_id))
+    def __init__(
+        self,
+        project_id: str,
+        instance_id: str,
+        database_id: str,
+        experimental_host: str | None = None,
+        use_plain_text: bool = False,
+        ca_certificate: str | None = None,
+        client_certificate: str | None = None,
+        client_key: str | None = None,
+    ) -> None:
+        if experimental_host:
+            self.client = spanner.Client(
+                use_plain_text=use_plain_text,
+                experimental_host=experimental_host,
+                ca_certificate=ca_certificate,
+                client_certificate=client_certificate,
+                client_key=client_key,
+            )
+        else:
+            credentials, _ = _get_default_credentials_with_project()
+            self.client = spanner.Client(
+                project=project_id, credentials=credentials, client_options=ClientOptions(quota_project_id=project_id))
         self.instance = self.client.instance(instance_id)
         logger = logging.getLogger("spanner_graphs")
         logger.setLevel(logging.CRITICAL)

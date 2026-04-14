@@ -197,6 +197,36 @@ class NetworkVisualizationMagics(Magics):
         parser.add_argument("--infra_db_path",
                             action="store_true",
                             help="Connect to internal Infra Spanner")
+        parser.add_argument(
+            "--experimental_host",
+            type=str,
+            required=False,
+            help="Spanner experimental host endpoint",
+        )
+        parser.add_argument(
+            "--use_plain_text",
+            type=bool,
+            required=False,
+            help="Use plain text communication for the experimental host",
+        )
+        parser.add_argument(
+            "--ca_certificate",
+            type=str,
+            required=False,
+            help="CA certificate path for the experimental host",
+        )
+        parser.add_argument(
+            "--client_certificate",
+            type=str,
+            required=False,
+            help="Client certificate path for the experimental host",
+        )
+        parser.add_argument(
+            "--client_key",
+            type=str,
+            required=False,
+            help="Client key path for the experimental host",
+        )
 
         try:
             args = parser.parse_args(line.split())
@@ -205,6 +235,10 @@ class NetworkVisualizationMagics(Magics):
                 selector = DatabaseSelector.mock()
             elif args.infra_db_path:
                 selector = DatabaseSelector.infra(infra_db_path=args.database)
+            elif args.experimental_host:
+                selector = DatabaseSelector.experimental_host(
+                    experimental_host=args.experimental_host, database=args.database, use_plain_text=args.use_plain_text, ca_certificate=args.ca_certificate, client_certificate=args.client_certificate, client_key=args.client_key
+                )
             else:
                 if not (args.project and args.instance):
                     raise ValueError(
