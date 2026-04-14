@@ -207,35 +207,47 @@ class NetworkVisualizationMagics(Magics):
             "--use_plain_text",
             type=bool,
             required=False,
-            help="Use plain text communication for the experimental host",
+            help="[Experimental Host Only] Use plain text communication for the experimental host",
         )
         parser.add_argument(
             "--ca_certificate",
             type=str,
             required=False,
-            help="CA certificate path for the experimental host",
+            help="[Experimental Host Only] CA certificate path for the experimental host",
         )
         parser.add_argument(
             "--client_certificate",
             type=str,
             required=False,
-            help="Client certificate path for the experimental host",
+            help="[Experimental Host Only] Client certificate path for the experimental host",
         )
         parser.add_argument(
             "--client_key",
             type=str,
             required=False,
-            help="Client key path for the experimental host",
+            help="[Experimental Host Only] Client key path for the experimental host",
         )
 
         try:
             args = parser.parse_args(line.split())
             selector = None
+            if not args.experimental_host:
+                if args.use_plain_text or args.ca_certificate or args.client_certificate or args.client_key:
+                    raise ValueError("use_plain_text, ca_certificate, client_certificate and client_key are only supported for Experimental Host")          
             if args.mock:
                 selector = DatabaseSelector.mock()
             elif args.infra_db_path:
                 selector = DatabaseSelector.infra(infra_db_path=args.database)
             elif args.experimental_host:
+                if args.use_plain_text:
+                    if args.ca_certificate or args.client_certificate or args.client_key:
+                        raise ValueError("When use_plain_text is true, no other certificate parameters should be set.")
+                elif not args.ca_certificate:
+                    raise ValueError("Either use_plain_text must be true or ca_certificate must be set.")
+
+                if bool(args.client_certificate) != bool(args.client_key):
+                    raise ValueError("client_certificate and client_key must both be provided together.")
+
                 selector = DatabaseSelector.experimental_host(
                     experimental_host=args.experimental_host, database=args.database, use_plain_text=args.use_plain_text, ca_certificate=args.ca_certificate, client_certificate=args.client_certificate, client_key=args.client_key
                 )
@@ -260,6 +272,7 @@ class NetworkVisualizationMagics(Magics):
             print(f"Error: {e}")
             print("       %%spanner_graph --project <proj> --instance <inst> --database <db>")
             print("       %%spanner_graph --mock")
+            print("       %%spanner_graph --experimental_host <host> --database <db> [--use_plain_text] [--ca_certificate <path>] [--client_certificate <path>] [--client_key <path>]")
             print("       Graph query here...")
 
 def load_ipython_extension(ipython):
