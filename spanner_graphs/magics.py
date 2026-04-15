@@ -205,8 +205,7 @@ class NetworkVisualizationMagics(Magics):
         )
         parser.add_argument(
             "--use_plain_text",
-            type=bool,
-            required=False,
+            action="store_true",
             help="[Experimental Host Only] Use plain text communication for the experimental host",
         )
         parser.add_argument(
