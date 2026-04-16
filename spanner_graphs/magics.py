@@ -247,7 +247,7 @@ class NetworkVisualizationMagics(Magics):
                 if bool(args.client_certificate) != bool(args.client_key):
                     raise ValueError("client_certificate and client_key must both be provided together.")
 
-                selector = DatabaseSelector.experimental_host(
+                selector = DatabaseSelector.for_experimental_host(
                     experimental_host=args.experimental_host, database=args.database, use_plain_text=args.use_plain_text, ca_certificate=args.ca_certificate, client_certificate=args.client_certificate, client_key=args.client_key
                 )
             else:
