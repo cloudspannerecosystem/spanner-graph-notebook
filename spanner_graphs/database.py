@@ -32,6 +32,8 @@ class SpannerEnv(Enum):
     CLOUD = auto()
     INFRA = auto()
     MOCK = auto()
+    EXPERIMENTAL_HOST = auto()
+
 
 @dataclass
 class DatabaseSelector:
@@ -47,12 +49,22 @@ class DatabaseSelector:
         instance: The Spanner instance.
         database: The Spanner database.
         infra_db_path: The path for an internal infrastructure database.
+        experimental_host: The Spanner experimental host endpoint.
+        use_plain_text: Whether to use plain text for the experimental host endpoint.
+        ca_certificate: CA certificate path for the experimental host endpoint.
+        client_certificate: Client certificate path for the experimental host endpoint.
+        client_key: Client key path for the experimental host endpoint.
     """
     env: SpannerEnv
     project: str | None = None
     instance: str | None = None
     database: str | None = None
     infra_db_path: str | None = None
+    experimental_host: str | None = None
+    use_plain_text: bool = False
+    ca_certificate: str | None = None
+    client_certificate: str | None = None
+    client_key: str | None = None
 
     @classmethod
     def cloud(cls, project: str, instance: str, database: str) -> 'DatabaseSelector':
@@ -73,6 +85,27 @@ class DatabaseSelector:
         """Creates a selector for a mock Spanner database."""
         return cls(env=SpannerEnv.MOCK)
 
+    @classmethod
+    def experimental_host(
+        cls, experimental_host: str, database: str, use_plain_text: bool = False, ca_certificate: str | None = None, client_certificate: str | None = None, client_key: str | None = None
+    ) -> "DatabaseSelector":
+        """Creates a selector for a Google Experimental Host Spanner database."""
+        if not database:
+            raise ValueError(
+                "database is required for Experimental Host Spanner Endpoint"
+            )
+        return cls(
+            env=SpannerEnv.EXPERIMENTAL_HOST,
+            project="default",
+            instance="default",
+            database=database,
+            experimental_host=experimental_host,
+            use_plain_text=use_plain_text,
+            ca_certificate=ca_certificate,
+            client_certificate=client_certificate,
+            client_key=client_key,
+            )
+
     def get_key(self) -> str:
         if self.env == SpannerEnv.CLOUD:
             return f"cloud_{self.project}_{self.instance}_{self.database}"
@@ -80,6 +113,8 @@ class DatabaseSelector:
             return f"infra_{self.infra_db_path}"
         elif self.env == SpannerEnv.MOCK:
             return "mock"
+        elif self.env == SpannerEnv.EXPERIMENTAL_HOST:
+            return f"experimental_host_{self.database}"
         else:
             raise ValueError("Unknown Spanner environment")
 

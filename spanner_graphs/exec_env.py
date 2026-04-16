@@ -81,6 +81,24 @@ def get_database_instance(
             raise RuntimeError(
                 "Infra Spanner support is not available in this environment."
             )
+    elif selector.env == SpannerEnv.EXPERIMENTAL_HOST:
+        try:
+            cloud_db_module = importlib.import_module("spanner_graphs.cloud_database")
+            CloudSpannerDatabase = getattr(cloud_db_module, "CloudSpannerDatabase")
+            db = CloudSpannerDatabase(
+                selector.project,
+                selector.instance,
+                selector.database,
+                selector.experimental_host,
+                selector.use_plain_text,
+                selector.ca_certificate,
+                selector.client_certificate,
+                selector.client_key,
+            )
+        except ImportError:
+            raise RuntimeError(
+                "Spanner experimental host support is not available in this environment."
+            )
     else:
         raise ValueError(f"Unsupported Spanner environment: {selector.env}")
 
