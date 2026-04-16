@@ -66,7 +66,7 @@ def dict_to_selector(selector_dict: Dict[str, Any]) -> DatabaseSelector:
         elif env == SpannerEnv.MOCK:
             return DatabaseSelector.mock()
         elif env == SpannerEnv.EXPERIMENTAL_HOST:
-            return DatabaseSelector.experimental_host(
+            return DatabaseSelector.for_experimental_host(
                 selector_dict["experimental_host"], selector_dict["database"], selector_dict["use_plain_text"], selector_dict["ca_certificate"], selector_dict["client_certificate"], selector_dict["client_key"]
             )
         raise ValueError(f"Invalid env in selector dict: {selector_dict}")

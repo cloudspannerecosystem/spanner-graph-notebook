@@ -86,7 +86,7 @@ class DatabaseSelector:
         return cls(env=SpannerEnv.MOCK)
 
     @classmethod
-    def experimental_host(
+    def for_experimental_host(
         cls, experimental_host: str, database: str, use_plain_text: bool = False, ca_certificate: str | None = None, client_certificate: str | None = None, client_key: str | None = None
     ) -> "DatabaseSelector":
         """Creates a selector for a Google Experimental Host Spanner database."""
