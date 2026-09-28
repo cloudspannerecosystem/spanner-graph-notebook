@@ -110,5 +110,78 @@ class TestNetworkVisualizationMagics(unittest.TestCase):
                 "Error: Query is required."
             )
 
+    @patch('spanner_graphs.magics.get_database_instance')
+    @patch('spanner_graphs.magics.generate_visualization_html')
+    def test_spanner_graph_magic_with_omni_args(self, mock_generate_html, mock_db):
+        """Test the %%spanner_graph magic with Spanner Omni arguments"""
+        mock_db.return_value = MagicMock()
+        mock_generate_html.return_value = "<html></html>"
+
+        line = "--instance_type omni --endpoint localhost:9010 --database test_db --use_plain_text"
+        cell = "GRAPH FinGraph MATCH (n) RETURN n"
+
+        self.magics.spanner_graph(line, cell)
+
+        expected_selector = DatabaseSelector.omni(
+            endpoint="localhost:9010",
+            database="test_db",
+            use_plain_text=True,
+            instance_type="omni",
+        )
+        mock_db.assert_called_once_with(expected_selector)
+        self.assertEqual(self.magics.selector, expected_selector)
+        mock_generate_html.assert_called_once()
+
+    @patch('spanner_graphs.magics.get_database_instance')
+    @patch('spanner_graphs.magics.generate_visualization_html')
+    def test_spanner_graph_magic_with_deprecated_experimental_host(self, mock_generate_html, mock_db):
+        """Test the %%spanner_graph magic with deprecated experimental_host argument"""
+        mock_db.return_value = MagicMock()
+        mock_generate_html.return_value = "<html></html>"
+
+        line = "--experimental_host localhost:9010 --database test_db --use_plain_text"
+        cell = "GRAPH FinGraph MATCH (n) RETURN n"
+
+        with self.assertWarns(DeprecationWarning):
+            self.magics.spanner_graph(line, cell)
+
+        expected_selector = DatabaseSelector.omni(
+            endpoint="localhost:9010",
+            database="test_db",
+            use_plain_text=True,
+        )
+        mock_db.assert_called_once_with(expected_selector)
+        self.assertEqual(self.magics.selector, expected_selector)
+        mock_generate_html.assert_called_once()
+
+    @patch('spanner_graphs.magics.get_database_instance')
+    @patch('spanner_graphs.magics.generate_visualization_html')
+    def test_spanner_graph_magic_with_cloud_endpoint_args(self, mock_generate_html, mock_db):
+        """Test the %%spanner_graph magic with cloud and custom endpoint"""
+        mock_db.return_value = MagicMock()
+        mock_generate_html.return_value = "<html></html>"
+
+        line = "--project test_proj --instance test_inst --database test_db --endpoint custom.spanner.endpoint:443"
+        cell = "SELECT * FROM test_table"
+
+        self.magics.spanner_graph(line, cell)
+
+        expected_selector = DatabaseSelector.cloud("test_proj", "test_inst", "test_db", endpoint="custom.spanner.endpoint:443")
+        mock_db.assert_called_once_with(expected_selector)
+        self.assertEqual(self.magics.selector, expected_selector)
+        mock_generate_html.assert_called_once()
+
+    def test_spanner_graph_magic_with_security_flags_without_omni(self):
+        """Test error when security flags are provided without Omni instance_type"""
+        line = "--project test_proj --instance test_inst --database test_db --use_plain_text"
+        cell = "SELECT * FROM test_table"
+
+        with patch('builtins.print') as mock_print:
+            self.magics.spanner_graph(line, cell)
+            mock_print.assert_any_call(
+                "Error: use_plain_text, ca_certificate, client_certificate and client_key are only supported for Spanner Omni"
+            )
+
+
 if __name__ == '__main__':
     unittest.main()

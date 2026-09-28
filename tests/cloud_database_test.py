@@ -57,6 +57,62 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(result.data["field1"], ['{"key": "value1"}'])
         self.assertEqual(result.fields[0].name, "field1")
 
+    @patch("spanner_graphs.cloud_database.spanner.Client")
+    def test_init_with_endpoint(self, mock_client: MagicMock) -> None:
+        """Test initialization with Omni endpoint and security options"""
+        db = CloudSpannerDatabase(
+            project_id="default",
+            instance_id="default",
+            database_id="test_db",
+            endpoint="localhost:9010",
+            instance_type="omni",
+            use_plain_text=True,
+        )
+        mock_client.assert_called_once_with(
+            project="default",
+            use_plain_text=True,
+            experimental_host="localhost:9010",
+            ca_certificate=None,
+            client_certificate=None,
+            client_key=None,
+        )
+
+    @patch("spanner_graphs.cloud_database.spanner.Client")
+    @patch("spanner_graphs.cloud_database._get_default_credentials_with_project", return_value=(MagicMock(), "test_project"))
+    def test_init_cloud_with_endpoint(self, mock_creds: MagicMock, mock_client: MagicMock) -> None:
+        """Test initialization of Cloud Spanner with custom endpoint"""
+        db = CloudSpannerDatabase(
+            project_id="test_project",
+            instance_id="test_instance",
+            database_id="test_db",
+            endpoint="custom.spanner.endpoint:443",
+        )
+        mock_client.assert_called_once()
+        _, kwargs = mock_client.call_args
+        self.assertEqual(kwargs["project"], "test_project")
+        self.assertEqual(kwargs["client_options"].api_endpoint, "custom.spanner.endpoint:443")
+        self.assertEqual(kwargs["client_options"].quota_project_id, "test_project")
+
+    @patch("spanner_graphs.cloud_database.spanner.Client")
+    @patch("inspect.signature")
+    def test_init_omni_with_instance_type_support(self, mock_sig: MagicMock, mock_client: MagicMock) -> None:
+        """Test Omni initialization when spanner.Client supports instance_type parameter"""
+        mock_sig.return_value.parameters = {"project": None, "instance_type": None, "client_options": None}
+        db = CloudSpannerDatabase(
+            project_id="default",
+            instance_id="default",
+            database_id="test_db",
+            endpoint="localhost:9010",
+            instance_type="omni",
+            use_plain_text=True,
+        )
+        mock_client.assert_called_once()
+        _, kwargs = mock_client.call_args
+        self.assertEqual(kwargs["project"], "default")
+        self.assertEqual(kwargs["instance_type"], "omni")
+        self.assertEqual(kwargs["client_options"].api_endpoint, "localhost:9010")
+        self.assertTrue(kwargs["use_plain_text"])
+
 
 if __name__ == "__main__":
     unittest.main()

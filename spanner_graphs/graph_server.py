@@ -60,14 +60,22 @@ def dict_to_selector(selector_dict: Dict[str, Any]) -> DatabaseSelector:
     try:
         env = SpannerEnv[selector_dict['env'].split('.')[-1]]
         if env == SpannerEnv.CLOUD:
-            return DatabaseSelector.cloud(selector_dict['project'], selector_dict['instance'], selector_dict['database'])
+            return DatabaseSelector.cloud(selector_dict['project'], selector_dict['instance'], selector_dict['database'], endpoint=selector_dict.get('endpoint'))
         elif env == SpannerEnv.INFRA:
             return DatabaseSelector.infra(selector_dict['infra_db_path'])
         elif env == SpannerEnv.MOCK:
             return DatabaseSelector.mock()
-        elif env == SpannerEnv.EXPERIMENTAL_HOST:
-            return DatabaseSelector.for_experimental_host(
-                selector_dict["experimental_host"], selector_dict["database"], selector_dict["use_plain_text"], selector_dict["ca_certificate"], selector_dict["client_certificate"], selector_dict["client_key"]
+        elif env == SpannerEnv.OMNI:
+            return DatabaseSelector.omni(
+                endpoint=selector_dict.get("endpoint"),
+                database=selector_dict["database"],
+                use_plain_text=selector_dict.get("use_plain_text", False),
+                ca_certificate=selector_dict.get("ca_certificate"),
+                client_certificate=selector_dict.get("client_certificate"),
+                client_key=selector_dict.get("client_key"),
+                instance_type=selector_dict.get("instance_type", "omni"),
+                project=selector_dict.get("project", "default"),
+                instance=selector_dict.get("instance", "default"),
             )
         raise ValueError(f"Invalid env in selector dict: {selector_dict}")
     except Exception as e:

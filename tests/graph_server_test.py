@@ -5,8 +5,9 @@ import json
 from spanner_graphs.graph_server import (
     is_valid_property_type,
     execute_node_expansion,
+    dict_to_selector,
 )
-from spanner_graphs.database import SpannerEnv
+from spanner_graphs.database import SpannerEnv, DatabaseSelector
 
 class TestPropertyTypeHandling(unittest.TestCase):
     def test_validate_property_type_valid_types(self):
@@ -150,6 +151,25 @@ class TestPropertyTypeHandling(unittest.TestCase):
         expected_pattern = "n.test_property='''test_value'''"
         self.assertIn(expected_pattern, where_line,
             "Property value should be quoted when string type is provided")
+
+
+class TestDictToSelector(unittest.TestCase):
+    def test_dict_to_selector_omni(self):
+        selector_dict = {
+            "env": str(SpannerEnv.OMNI),
+            "endpoint": "localhost:9010",
+            "database": "test-db",
+            "use_plain_text": True,
+            "ca_certificate": None,
+            "client_certificate": None,
+            "client_key": None,
+        }
+        selector = dict_to_selector(selector_dict)
+        self.assertEqual(selector.env, SpannerEnv.OMNI)
+        self.assertEqual(selector.endpoint, "localhost:9010")
+        self.assertEqual(selector.database, "test-db")
+        self.assertTrue(selector.use_plain_text)
+
 
 if __name__ == '__main__':
     unittest.main()

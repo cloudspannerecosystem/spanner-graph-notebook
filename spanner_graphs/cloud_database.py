@@ -44,24 +44,47 @@ class CloudSpannerDatabase(SpannerDatabase):
         project_id: str,
         instance_id: str,
         database_id: str,
-        experimental_host: str | None = None,
         use_plain_text: bool = False,
         ca_certificate: str | None = None,
         client_certificate: str | None = None,
         client_key: str | None = None,
+        endpoint: str | None = None,
+        instance_type: str | None = None,
     ) -> None:
-        if experimental_host:
-            self.client = spanner.Client(
-                use_plain_text=use_plain_text,
-                experimental_host=experimental_host,
-                ca_certificate=ca_certificate,
-                client_certificate=client_certificate,
-                client_key=client_key,
-            )
+        is_omni = instance_type is not None and instance_type.strip().lower() == "omni"
+        if is_omni:
+            client_kwargs: dict[str, Any] = {
+                "project": project_id,
+                "use_plain_text": use_plain_text,
+                "ca_certificate": ca_certificate,
+                "client_certificate": client_certificate,
+                "client_key": client_key,
+            }
+            try:
+                from google.cloud.spanner_v1 import InstanceType
+                omni_instance_type = getattr(InstanceType, "OMNI", instance_type or "omni")
+            except ImportError:
+                omni_instance_type = instance_type or "omni"
+
+            import inspect
+            sig_params = inspect.signature(spanner.Client.__init__).parameters
+            if "instance_type" in sig_params:
+                client_kwargs["instance_type"] = omni_instance_type
+                if endpoint:
+                    client_kwargs["client_options"] = ClientOptions(api_endpoint=endpoint)
+            else:
+                client_kwargs["experimental_host"] = endpoint
+
+            self.client = spanner.Client(**client_kwargs)
         else:
             credentials, _ = _get_default_credentials_with_project()
+            client_options = (
+                ClientOptions(quota_project_id=project_id, api_endpoint=endpoint)
+                if endpoint
+                else ClientOptions(quota_project_id=project_id)
+            )
             self.client = spanner.Client(
-                project=project_id, credentials=credentials, client_options=ClientOptions(quota_project_id=project_id))
+                project=project_id, credentials=credentials, client_options=client_options)
         self.instance = self.client.instance(instance_id)
         logger = logging.getLogger("spanner_graphs")
         logger.setLevel(logging.CRITICAL)

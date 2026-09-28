@@ -198,46 +198,75 @@ class NetworkVisualizationMagics(Magics):
                             action="store_true",
                             help="Connect to internal Infra Spanner")
         parser.add_argument(
+            "--endpoint",
+            type=str,
+            required=False,
+            help="Spanner endpoint (e.g. host:port)",
+        )
+        parser.add_argument(
+            "--instance_type",
+            type=str,
+            required=False,
+            help="Spanner instance type (e.g. omni)",
+        )
+        parser.add_argument(
             "--experimental_host",
             type=str,
             required=False,
-            help="Spanner experimental host endpoint",
+            help="[Deprecated: Use --endpoint instead] Spanner experimental host endpoint",
         )
         parser.add_argument(
             "--use_plain_text",
             action="store_true",
-            help="[Experimental Host Only] Use plain text communication for the experimental host",
+            help="[Spanner Omni] Use plain text communication",
         )
         parser.add_argument(
             "--ca_certificate",
             type=str,
             required=False,
-            help="[Experimental Host Only] CA certificate path for the experimental host",
+            help="[Spanner Omni] CA certificate path",
         )
         parser.add_argument(
             "--client_certificate",
             type=str,
             required=False,
-            help="[Experimental Host Only] Client certificate path for the experimental host",
+            help="[Spanner Omni] Client certificate path",
         )
         parser.add_argument(
             "--client_key",
             type=str,
             required=False,
-            help="[Experimental Host Only] Client key path for the experimental host",
+            help="[Spanner Omni] Client key path",
         )
 
         try:
             args = parser.parse_args(line.split())
             selector = None
-            if not args.experimental_host:
+            if args.experimental_host:
+                import warnings
+                warnings.warn(
+                    "--experimental_host is deprecated, please use --instance_type omni --endpoint instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                if not args.endpoint:
+                    args.endpoint = args.experimental_host
+                if not args.instance_type:
+                    args.instance_type = "omni"
+
+            is_omni = args.instance_type is not None and args.instance_type.strip().lower() == "omni"
+            if not is_omni:
                 if args.use_plain_text or args.ca_certificate or args.client_certificate or args.client_key:
-                    raise ValueError("use_plain_text, ca_certificate, client_certificate and client_key are only supported for Experimental Host")          
+                    raise ValueError("use_plain_text, ca_certificate, client_certificate and client_key are only supported for Spanner Omni")
             if args.mock:
                 selector = DatabaseSelector.mock()
             elif args.infra_db_path:
                 selector = DatabaseSelector.infra(infra_db_path=args.database)
-            elif args.experimental_host:
+            elif is_omni:
+                if not args.endpoint:
+                    raise ValueError("endpoint is required for Spanner Omni")
+                if not args.database:
+                    raise ValueError("database is required for Spanner Omni")
                 if args.use_plain_text:
                     if args.ca_certificate or args.client_certificate or args.client_key:
                         raise ValueError("When use_plain_text is true, no other certificate parameters should be set.")
@@ -247,15 +276,23 @@ class NetworkVisualizationMagics(Magics):
                 if bool(args.client_certificate) != bool(args.client_key):
                     raise ValueError("client_certificate and client_key must both be provided together.")
 
-                selector = DatabaseSelector.for_experimental_host(
-                    experimental_host=args.experimental_host, database=args.database, use_plain_text=args.use_plain_text, ca_certificate=args.ca_certificate, client_certificate=args.client_certificate, client_key=args.client_key
+                selector = DatabaseSelector.omni(
+                    endpoint=args.endpoint,
+                    database=args.database,
+                    use_plain_text=args.use_plain_text,
+                    ca_certificate=args.ca_certificate,
+                    client_certificate=args.client_certificate,
+                    client_key=args.client_key,
+                    instance_type=args.instance_type or "omni",
+                    project=args.project,
+                    instance=args.instance,
                 )
             else:
                 if not (args.project and args.instance):
                     raise ValueError(
                         "Please provide `--project` and `--instance` for Cloud Spanner."
                     )
-                selector = DatabaseSelector.cloud(args.project, args.instance, args.database)
+                selector = DatabaseSelector.cloud(args.project, args.instance, args.database, endpoint=args.endpoint)
 
             if not args.mock and (not cell or not cell.strip()):
                 print("Error: Query is required.")
@@ -271,7 +308,7 @@ class NetworkVisualizationMagics(Magics):
             print(f"Error: {e}")
             print("       %%spanner_graph --project <proj> --instance <inst> --database <db>")
             print("       %%spanner_graph --mock")
-            print("       %%spanner_graph --experimental_host <host> --database <db> [--use_plain_text] [--ca_certificate <path>] [--client_certificate <path>] [--client_key <path>]")
+            print("       %%spanner_graph --instance_type omni --endpoint <endpoint> --database <db> [--use_plain_text] [--ca_certificate <path>] [--client_certificate <path>] [--client_key <path>]")
             print("       Graph query here...")
 
 def load_ipython_extension(ipython):
