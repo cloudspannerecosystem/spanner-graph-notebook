@@ -4,29 +4,41 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   test-bigquery-magics:
     runs-on: ubuntu-latest
     steps:
       # Step 1: Checkout local PR of spanner-graph-notebook
       - name: Checkout spanner-graph-notebook (Repo A)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.11'
 
-      # Step 2: Checkout python-bigquery-magics
-      - name: Checkout python-bigquery-magics (Repo B)
-        uses: actions/checkout@v4
+      # Step 2: Checkout bigquery-magics.
+      # googleapis/python-bigquery-magics is archived (frozen at 0.12.1); the
+      # package now lives in the google-cloud-python monorepo. Sparse-checkout
+      # only the bigquery-magics package to keep the clone small.
+      - name: Checkout bigquery-magics (Repo B)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          repository: googleapis/python-bigquery-magics
-          path: python-bigquery-magics
+          repository: googleapis/google-cloud-python
+          path: google-cloud-python
+          sparse-checkout: packages/bigquery-magics
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
 
       - name: Install and test
         run: |
           set -e
+          BQM=google-cloud-python/packages/bigquery-magics
           python -m venv venv
           . venv/bin/activate
           
@@ -39,14 +51,14 @@ jobs:
           # The '.' refers to the root directory, where Repo A was checked out.
           pip install -e .
           
-          # Step 2 (continued): Install python-bigquery-magics in editable mode
-          # This installs from the 'python-bigquery-magics' subdirectory.
+          # Step 2 (continued): Install bigquery-magics in editable mode
+          # This installs from the monorepo's 'packages/bigquery-magics' subdirectory.
           # pip will see that spanner-graph-notebook is already installed.
-          pip install -e ./python-bigquery-magics
+          pip install -e ./$BQM
           
           # Prepend the required import to the test files
-          echo "import spanner_graphs.graph_visualization as graph_visualization" | cat - python-bigquery-magics/tests/unit/test_graph_server.py > temp && mv temp python-bigquery-magics/tests/unit/test_graph_server.py
-          echo "import spanner_graphs.graph_visualization as graph_visualization" | cat - python-bigquery-magics/tests/unit/bigquery/test_bigquery.py > temp && mv temp python-bigquery-magics/tests/unit/bigquery/test_bigquery.py
+          echo "import spanner_graphs.graph_visualization as graph_visualization" | cat - $BQM/tests/unit/test_graph_server.py > temp && mv temp $BQM/tests/unit/test_graph_server.py
+          echo "import spanner_graphs.graph_visualization as graph_visualization" | cat - $BQM/tests/unit/bigquery/test_bigquery.py > temp && mv temp $BQM/tests/unit/bigquery/test_bigquery.py
           
           # Step 6: Run the tests
-          pytest -v python-bigquery-magics/tests/unit/test_graph_server.py python-bigquery-magics/tests/unit/bigquery/test_bigquery.py
+          pytest -v $BQM/tests/unit/test_graph_server.py $BQM/tests/unit/bigquery/test_bigquery.py
